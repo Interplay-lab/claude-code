@@ -4,6 +4,19 @@
 **Status:** Design doc. No tables built yet. Existing event/attendance/payout infrastructure assumed in place.
 **Scope:** Extend the current Airtable + Make.com stack to track expenses, compute KPIs, and surface a live financial dashboard.
 
+**Financial tech stack (the systems this plan integrates with):**
+
+| System | Role | Integration path |
+|---|---|---|
+| **Capital One** | Operating checking account | Read via QuickBooks bank feed (no direct Make connector) |
+| **QuickBooks Online** | Accounting / categorized transactions | Native Make connector — primary expense source |
+| **Stripe** | Card processing for ticket sales | Native Make connector — per-charge fees, payout reconciliation |
+| **PayPal** | **Exclusive** payment method for venue payouts | Native Make connector — outbound expense tracking |
+| **Venmo** | Occasional venue payouts and rare participant payments | **No public API for personal Venmo.** Monthly CSV export only — flagged as a tracking liability; goal is to eliminate or migrate to PayPal/Stripe |
+| **TicketTailor** | Ticket sales / event creation (existing) | Webhooks → Airtable (existing) |
+| **Airtable** | System of record for everything in this plan | — |
+| **Make.com** | All automation | — |
+
 ---
 
 ## 1. Architecture overview
@@ -32,8 +45,9 @@ This plan adds three layers on top of what exists:
 │  LAYER 1 — RAW DATA (new tables + existing)                 │
 │  NEW:  • Expenses        (one row per transaction)          │
 │        • Subscriptions   (master list of recurring tools)   │
+│        • Venues          (pricing rules for auto-payout)    │
+│        • Venue Payouts   (calculated + actual)              │
 │        • Surveys         (post-event NPS responses)         │
-│        • Testimonials    (collected testimonials)           │
 │  EXISTING: Events, Attendance, Facilitator Payouts,         │
 │            Salary Log, Time Entries, Series Rosters         │
 └─────────────────────────────────────────────────────────────┘
@@ -45,11 +59,12 @@ This plan adds three layers on top of what exists:
 
 ### 2.1 `Subscriptions` — recurring tool/service master list
 
-The "minimum monthly expenditure floor" comes from summing this table.
+The "minimum monthly expenditure floor" comes from summing this table. **This table is the source of truth for which charges are annual vs monthly vs quarterly** — when an Expense row is imported from QB, we look up the vendor here, copy the `Frequency`, and amortize accordingly. Without this table, an annual $1,200 Airtable charge looks like a $1,200 spike in March instead of $100/mo.
 
 | Field | Type | Notes |
 |---|---|---|
 | Service Name | Single line text | e.g. "Airtable Team", "Make.com Core", "Zoom Pro" |
+| Vendor Aliases | Multiple select / text | Free-text alt names that may appear on bank/QB feeds (e.g. "AIRTABLE.COM", "Airtable Inc", "FORMAGRID INC") — used for fuzzy matching during expense import |
 | Category | Single select | Software, Banking, Insurance, Marketing, Legal/Accounting, Communications, Misc |
 | Frequency | Single select | Monthly, Quarterly, Annual |
 | Amount | Currency | Charge per cycle |
@@ -57,11 +72,17 @@ The "minimum monthly expenditure floor" comes from summing this table.
 | Renewal Date | Date | Next renewal |
 | Status | Single select | Active, Cancelled, Paused |
 | Owner | Linked → People | Who manages this subscription |
-| Auto-Pay From | Single select | Capital One, Stripe Card, ACH, Manual |
+| Auto-Pay From | Single select | Capital One, Stripe Card, PayPal, ACH, Manual |
 | Notes | Long text | |
 
-**Seed data to load on day 1** (estimate from your current stack):
-- Airtable, Make.com, TicketTailor, Zoom Pro, Google Workspace, Stripe (per-tx, not subscription), Toggl Track, plus any insurance/legal/SaaS not listed.
+**The annual-amortization mechanic, end-to-end:**
+1. You list every recurring tool here with its true `Frequency` and `Amount`.
+2. When QuickBooks Scenario 5 (§4) imports a transaction, it fuzzy-matches the vendor against `Service Name` + `Vendor Aliases`.
+3. On match → the Expense row's `Frequency` is set from the Subscription, and `Subscription` link is populated. `Monthly Amortized` then computes correctly.
+4. On no match → Expense defaults to `Frequency = One-time` and gets flagged for human review (a "Needs Categorization" view in Airtable). If the user confirms it's a recurring tool, they create a Subscription and re-link.
+
+**Seed data to load on day 1:**
+Airtable, Make.com, TicketTailor, Zoom Pro, Google Workspace, Toggl Track, any annual insurance, legal retainers, domain renewals, accounting subscriptions. Stripe is *not* a subscription (per-tx fees only).
 
 ### 2.2 `Expenses` — transaction-level
 
@@ -75,12 +96,14 @@ The "minimum monthly expenditure floor" comes from summing this table.
 | Frequency | Single select | One-time, Monthly, Quarterly, Annual |
 | Subscription | Linked → Subscriptions | If this transaction is a subscription charge |
 | Monthly Amortized | Formula | `IF({Frequency}="Annual",{Amount}/12,IF({Frequency}="Quarterly",{Amount}/3,{Amount}))` |
-| Account | Single select | Capital One, Stripe, Cash, Other |
+| Account | Single select | Capital One, Stripe, PayPal, Venmo, Cash, Other |
 | Receipt | Attachment | |
 | Linked Event | Linked → Events | For event-specific costs (venue, travel) |
-| Source | Single select | QuickBooks, Stripe API, Manual, CSV Import, Lunch Money |
-| External ID | Single line text | Dedup key — QB transaction ID or Stripe charge ID. Unique. |
+| Linked Venue Payout | Linked → Venue Payouts | When this expense represents the actual venue payment leaving PayPal/Venmo |
+| Source | Single select | QuickBooks, Stripe API, PayPal API, Venmo CSV, Manual, CSV Import |
+| External ID | Single line text | Dedup key — QB transaction ID, Stripe charge ID, or PayPal txn ID. Unique. |
 | Stripe Payout ID | Single line text | Links Stripe fees to the QB bank-deposit row that paid them out |
+| Needs Categorization | Checkbox | Auto-checked when the import couldn't match a Subscription/Vendor — drives a review queue |
 | Notes | Long text | |
 
 Why amortize at the row level: a single $1,200 annual Airtable charge in March would otherwise spike March's expense total by $1,200 instead of showing $100/mo across the year. Amortized totals give an honest run-rate; Amount totals give true cash flow. We'll surface both in the dashboard.
@@ -119,10 +142,76 @@ Populated by Make.com on the 1st of each month for the prior month.
 | Total Unique Attendees | Number | DISTINCT emails in Attendance this month |
 | New Attendees | Number | Emails attending for the first time this month |
 | NPS | Number | (% Promoters − % Detractors) from Surveys |
-| Testimonial Rate | Number | Testimonials submitted / total attendees |
 | Notes | Long text | |
 
-### 2.5 `Surveys` (Phase 2)
+### 2.5 `Venues` — pricing rules for auto-calculated payouts
+
+The single biggest reason this table exists: **right now venue payouts are calculated by hand**, and venues use different schemes (per-hour, % of gross, flat rate, hybrid). Encoding the rules here lets us auto-generate the payout amount the moment an event closes, which removes a recurring source of math errors and cash-flow surprises.
+
+| Field | Type | Notes |
+|---|---|---|
+| Venue Name | Single line text | e.g. "Boulder Studio Collective" |
+| Region | Single select | Bay Area, Boulder, NYC, Other |
+| Address | Long text | |
+| Charge Type | Single select | **Per-Hour**, **Percentage of Gross**, **Flat Rate**, **Hybrid (greater of)**, **Hybrid (lesser of)**, **Free / Donation** |
+| Hourly Rate | Currency | Used by Per-Hour and Hybrid |
+| Percentage Rate | Number (%) | Used by Percentage and Hybrid (e.g. 20 = 20%) |
+| Flat Fee | Currency | Used by Flat Rate |
+| Minimum | Currency | Optional floor — e.g. "20% of gross or $200, whichever is greater" |
+| Includes Setup/Teardown | Checkbox | If true, billable hours = (event end − event start) + setup/teardown buffer |
+| Setup/Teardown Hours | Number | Default 0.5 each side |
+| Payment Method | Single select | PayPal, Venmo, Check, ACH |
+| PayPal Email | Email | For PayPal payouts |
+| Venmo Handle | Single line text | For the rare Venmo payout |
+| Contact Name | Single line text | |
+| Contact Email | Email | |
+| Contact Phone | Phone | |
+| Status | Single select | Active, Inactive, Past Only |
+| Notes | Long text | Edge cases, history, off-menu deals |
+
+**Add a `Venue` link field to the existing `Events` table.** Every event picks a venue. This unlocks the formula in §2.6.
+
+### 2.6 `Venue Payouts` — calculated + actual
+
+One row per venue payment per event. Created automatically when an event is marked `Status = Complete`.
+
+| Field | Type | Notes |
+|---|---|---|
+| Event | Linked → Events | |
+| Venue | Linked → Venues | Lookup from Event |
+| Event Date | Lookup | From Event |
+| Billable Hours | Formula | `({Event End} − {Event Start}) + IF({Venue.Includes Setup/Teardown}, 2 × {Venue.Setup/Teardown Hours}, 0)` |
+| Adjusted Gross | Lookup | From Event |
+| Calculated Amount | Formula | See "auto-calc formula" below |
+| Override Amount | Currency | Manual override when a deal differs from the rule |
+| Final Amount | Formula | `IF({Override Amount}, {Override Amount}, {Calculated Amount})` |
+| Status | Single select | Pending, Paid, Disputed, Waived |
+| Paid Date | Date | |
+| Payment Method | Single select | PayPal, Venmo, Check, ACH |
+| Payment Reference | Single line text | PayPal txn ID, Venmo memo, check number |
+| Linked Expense | Linked → Expenses | Created when the actual outflow lands in PayPal/Venmo and matches |
+| Reconciled | Checkbox | Auto-checked when Linked Expense.Amount = Final Amount ± $0.01 |
+| Notes | Long text | |
+
+**Auto-calc formula (`Calculated Amount`):**
+```
+SWITCH({Venue.Charge Type},
+  "Per-Hour",            {Venue.Hourly Rate} × {Billable Hours},
+  "Percentage of Gross", ({Venue.Percentage Rate} / 100) × {Adjusted Gross},
+  "Flat Rate",           {Venue.Flat Fee},
+  "Hybrid (greater of)", MAX({Venue.Hourly Rate} × {Billable Hours},
+                             ({Venue.Percentage Rate} / 100) × {Adjusted Gross},
+                             {Venue.Minimum}),
+  "Hybrid (lesser of)",  MIN({Venue.Hourly Rate} × {Billable Hours},
+                             ({Venue.Percentage Rate} / 100) × {Adjusted Gross}),
+  "Free / Donation",     0,
+  0
+)
+```
+
+**Triggering creation:** an Airtable automation on Events watches for `Status` becoming `Complete` and creates a Venue Payout row. The Make-side reconciliation scenario (§4, Scenario 5d) later links the actual PayPal/Venmo outflow to this row.
+
+### 2.7 `Surveys` (Phase 2)
 
 | Field | Type | Notes |
 |---|---|---|
@@ -132,21 +221,8 @@ Populated by Make.com on the 1st of each month for the prior month.
 | Event | Linked → Events | |
 | NPS Score | Number | 0–10 |
 | NPS Bucket | Formula | `IF({NPS Score}>=9,"Promoter",IF({NPS Score}>=7,"Passive","Detractor"))` |
-| Would Share Testimonial | Checkbox | |
-| Testimonial Text | Long text | |
 | Referral Source | Single line text | |
 | Comments | Long text | |
-
-### 2.6 `Testimonials` (Phase 2)
-
-| Field | Type | Notes |
-|---|---|---|
-| Person | Linked → People (or Attendance) | |
-| Source | Single select | Survey, Email, Social, Other |
-| Quote | Long text | |
-| Permission to Use | Checkbox | |
-| Used In | Multiple select | Website, Social, Email, Print |
-| Date Collected | Date | |
 
 ---
 
@@ -244,6 +320,37 @@ Populated by Make.com on the 1st of each month for the prior month.
 **Required setup on Stripe side:**
 - TicketTailor → Stripe checkout: confirm that TT passes `event_id` (or equivalent) into Stripe charge metadata. If it doesn't, add a Make scenario step that writes back metadata to the charge after TT webhook fires. Without this, event attribution falls back to date-proximity matching, which is fragile.
 
+### Scenario 5c — PayPal → Expenses + Venue Payout reconciliation (NEW)
+
+**Why:** PayPal is the *exclusive* outbound channel for venue payments. Every PayPal txn in our account should be a venue payout (or close to it). We pull each one, create an Expenses row, and link it to the corresponding Venue Payout record so we can flip `Reconciled = true`.
+
+**Trigger:** Daily at 02:30 PT (between QB and Stripe scenarios)
+**Modules:**
+1. `paypal:listTransactions` — `start_date > scenario_last_run`, type = SEND_MONEY or PAYMENT_SENT
+2. Iterator
+3. Dedup by `External ID = paypal.transaction_id`
+4. `airtable:searchRecords` (Venues) — match `PayPal Email = recipient_email`
+5. `airtable:searchRecords` (Venue Payouts) — match by `Venue` + `Event Date` proximity (within 14 days), `Status != Paid`
+6. Router →
+   - **Match found:** create Expense (Vendor=Venue Name, Category=Venue, Linked Venue Payout=matched, Account=PayPal). Update the Venue Payout: `Status=Paid`, `Paid Date`, `Payment Reference`, `Linked Expense`, `Reconciled` (auto via formula).
+   - **No match:** create Expense with `Needs Categorization=true`, route to review queue.
+
+### Scenario 5d — Venmo CSV ingest (NEW, manual)
+
+**Why this is half-manual:** personal Venmo has no public API. Venmo Business does, but you're not on it.
+
+**Path:** monthly download of the Venmo CSV statement, dropped into a watched Google Drive folder.
+**Trigger:** Make watches the Drive folder for new files.
+**Modules:**
+1. `googleDrive:watchFiles` (folder: "Venmo Statements")
+2. `csv:parse`
+3. Iterator
+4. Dedup by `External ID = venmo.transaction_id`
+5. Same matching logic as Scenario 5c (Venues by handle, Venue Payouts by date proximity)
+6. Create Expenses rows + reconcile.
+
+**Recommendation called out separately in §8:** since Venmo is a tracking liability, the long-term action is to migrate any remaining Venmo-paid venues to PayPal. The CSV path exists only to keep the books accurate while that migration happens.
+
 ### Scenario 6 — Monthly KPI Rollup (NEW)
 
 **Trigger:** Schedule, 1st of month at 06:00 PT, runs for *prior* month
@@ -319,30 +426,34 @@ Single Interface with these pages:
 ## 6. Build sequence
 
 ### Phase 1 — Foundation (Week 1)
-1. Create `Subscriptions` table, seed with current tools.
-2. Create `Expenses` table.
-3. Create `Monthly Financials` and `KPI Snapshots` tables (empty).
-4. Backfill Subscriptions with everything you currently pay for.
-5. Manual-import expenses for the last 3 months (CSV from Capital One) to seed history.
-6. **Deliverable:** you can answer "what's our minimum monthly expenditure?" by viewing Subscriptions.
+1. Create `Subscriptions` table, seed with all current tools and their true frequencies (this is what powers correct annual amortization).
+2. Create `Venues` table; seed with every venue you've used. For each, encode the charge rule (per-hour, %, flat, hybrid). This is the most error-prone step — get a second pair of eyes on it.
+3. Add `Venue` link field to existing `Events` table; backfill it for past events.
+4. Create `Venue Payouts`, `Expenses`, `Monthly Financials`, `KPI Snapshots` tables.
+5. Add Airtable automation: when `Events.Status = Complete`, auto-create a Venue Payout row.
+6. Manually import expenses for the last 3 months (CSV from Capital One) to seed history.
+7. **Deliverable:** you can answer "what's our minimum monthly expenditure?" from Subscriptions and "what does this venue charge us?" from Venues.
 
 ### Phase 2 — Automation (Weeks 2–3)
-7. Build Make Scenario 5 (QuickBooks → Expenses).
-8. Build Make Scenario 5b (Stripe → Expenses + Event reconciliation) — must run *after* Scenario 5 daily so payouts are matchable.
-9. Verify Stripe metadata flow: confirm TicketTailor passes event ID into Stripe charge metadata; if not, add a TT-webhook → Stripe metadata-update step.
-10. Build Make Scenario 6 (Monthly KPI Rollup) — Return Rate first, others added incrementally.
-11. Run the rollup retroactively for the last 6 months by manually triggering with overridden date variables.
-12. **Deliverable:** every 1st of the month, Monthly Financials and KPI Snapshots auto-populate; daily, Expenses reconciles bank deposits to Stripe charges to events.
+8. Build Make Scenario 5 (QuickBooks → Expenses), with Subscription matching driving Frequency/amortization.
+9. Build Make Scenario 5b (Stripe → Expenses + Event reconciliation) — runs after #8 daily.
+10. Build Make Scenario 5c (PayPal → Expenses + Venue Payout reconciliation).
+11. Build Make Scenario 5d (Venmo CSV ingest) — wire up the Drive folder.
+12. Verify Stripe metadata flow from TicketTailor; add metadata-write step if missing.
+13. Build Make Scenario 6 (Monthly KPI Rollup) — Return Rate first.
+14. Run rollup retroactively for last 6 months with overridden date variables.
+15. **Deliverable:** every event closes itself out automatically — venue payout calculated, PayPal txn matched, books balanced. Monthly KPIs auto-populate.
 
 ### Phase 3 — Visibility (Week 4)
-13. Build the Airtable Interface "Financial Command Center" with 5 pages above.
-14. Set up a weekly digest email (Make scenario or Airtable automation): MRR, cash, recent KPIs.
-15. **Deliverable:** Peter + Violet have a single URL to check the business's financial health.
+16. Build the Airtable Interface "Financial Command Center" with 5 pages above.
+17. Add a "Venue Payouts — Pending" view to Page 1 (which payouts are calculated but not yet sent).
+18. Weekly digest email: MRR, cash, recent KPIs, pending venue payouts.
+19. **Deliverable:** Peter + Violet have a single URL for business health.
 
 ### Phase 4 — Surveys & qualitative KPIs (Weeks 5–6, optional)
-16. Set up Tally form for post-event survey.
-17. Build Make Scenario 7.
-18. Add NPS + Testimonial Rate to KPI Snapshots and dashboard.
+20. Tally form for post-event survey.
+21. Build Make Scenario 7.
+22. Add NPS to KPI Snapshots and dashboard.
 
 ---
 
@@ -353,10 +464,14 @@ The system is only useful if someone owns each piece. Suggested RACI (you should
 | Area | Responsible | Accountable | Consulted |
 |---|---|---|---|
 | Expense entry / categorization | Bookkeeper | Violet | Peter |
+| "Needs Categorization" review queue | Violet | Peter | — |
 | Subscription audit (quarterly) | Violet | Peter | — |
+| Venue rule maintenance | Peter | Peter | Violet |
+| Venue payout sending (PayPal) | Violet | Peter | — |
+| Venmo CSV upload (monthly) | Violet | Peter | — |
 | KPI review (monthly) | Peter | Peter | Violet |
 | Dashboard maintenance | Violet | Peter | — |
-| Survey follow-up & testimonials | Kayla / Briana | Violet | — |
+| Survey follow-up | Kayla / Briana | Violet | — |
 
 **Decision-making cadence (proposed):**
 - **Weekly (15 min):** Peter + Violet review prior week's revenue, expenses, anomalies. Anything red gets an action owner.
@@ -376,13 +491,15 @@ Sum and rank. Anything scoring ≥15 of 20 goes on the "do next" list. Below 10 
 
 ## 8. Open decisions / pending items
 
-Things that need a call before we build:
-
-1. ~~**Expense source confirmation.**~~ **DECIDED:** QuickBooks Online primary, Stripe API for per-charge fees and event attribution. Lunch Money is the fallback if QuickBooks proves clunky.
-2. **MRR definition.** Is MRR (a) just active series enrollments amortized monthly, (b) a trailing-3-month average of all event revenue, or (c) something else? The dashboard line item depends on this.
-3. **Cash reserve target.** The dashboard "are we safe?" indicator needs a target. Common rule: 3× monthly Subscription Floor + Salaries. Acceptable?
-4. **Survey tool.** Tally (free, simple) or Typeform (paid, prettier)? Phase 2 question, but flag now.
-5. **Series-counting for Return Rate.** Confirm that only the first session of a multi-session series counts toward the return-rate denominator (recommended), so Dojo students don't inflate the metric.
+1. ~~Expense source.~~ **DECIDED:** QuickBooks + Stripe API + PayPal API + Venmo CSV. Lunch Money fallback if QB clunks.
+2. **MRR definition.** (a) active series enrollments amortized monthly, (b) trailing-3-month average of all event revenue, (c) something else?
+3. **Cash reserve target.** Default proposal: 3× monthly Subscription Floor + Salaries. Acceptable?
+4. **Survey tool.** Tally (free) or Typeform (paid)?
+5. **Series-counting for Return Rate.** Confirm only the first session of a multi-session series counts toward the denominator.
+6. **Venue billable-hours convention.** Does "billable hours" include setup/teardown by default? Default proposal: yes, 30 min each side, but per-venue overridable via the `Includes Setup/Teardown` checkbox.
+7. **Hybrid pricing tiebreaker.** When a venue uses "greater of X% or $Y minimum", confirm the formula matches your contracts. Several venues we've seen do "greater of [hourly × hours] OR [% of gross]" — different from a flat minimum. We'll review each venue's contract during Phase 1 step 2.
+8. **Venmo migration goal.** Set a target date by which all venues currently paid via Venmo migrate to PayPal? This is the only way the books stay clean long-term.
+9. **Event status field.** Confirm the existing Events table has a `Status` field with a `Complete` value (or what we should use as the trigger for venue payout creation). If not, we'll add one.
 
 ---
 
@@ -398,11 +515,17 @@ These are still open from the original setup and block parts of this plan:
 
 ## 10. Next concrete step
 
-Expense source is locked (QuickBooks + Stripe API, Lunch Money as fallback). To start Phase 1 I need answers to the four remaining questions in §8 (MRR definition, cash reserve target, survey tool, series-counting rule). Once those are settled I'll:
+Tech stack is locked: QuickBooks + Stripe + PayPal + Venmo (CSV) + Capital One. To start Phase 1 I need:
 
-1. Create the six new tables in Airtable (Subscriptions, Expenses, Monthly Financials, KPI Snapshots, Surveys, Testimonials).
-2. Seed Subscriptions with your current recurring tools.
-3. Backfill the last 3 months of expenses from Capital One CSV so we have history to test rollups against.
-4. Move to Phase 2 automation (QuickBooks + Stripe scenarios).
+**Required answers** (§8 questions 2, 3, 5, 6, 8, 9 — the questions that block table design or formulas):
+- MRR definition
+- Cash reserve target (or accept 3× floor+salaries)
+- Series-counting rule for Return Rate (or accept "first session only")
+- Setup/teardown convention for venue billable hours (or accept 30 min each side)
+- Venmo migration target date (or "no target — handle CSV ingest indefinitely")
+- Confirm Events.Status field exists with a Complete value, or grant permission to add one
 
-Reply with answers to §8 questions 2–5 and I'll start building.
+**Required data** (so Phase 1 step 2 isn't a guessing game):
+- For each venue we use: name, region, charge type (per-hour / % / flat / hybrid), exact rates, payment method (PayPal/Venmo), and contact email/handle. A short Google Doc or CSV is fine.
+
+Once those are in, I'll create the seven new tables (Subscriptions, Expenses, Venues, Venue Payouts, Monthly Financials, KPI Snapshots, Surveys), wire the auto-payout automation, seed Subscriptions and Venues, and move to Phase 2.
