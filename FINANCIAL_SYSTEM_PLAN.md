@@ -335,14 +335,14 @@ Single Interface with these pages:
 12. **Deliverable:** every 1st of the month, Monthly Financials and KPI Snapshots auto-populate; daily, Expenses reconciles bank deposits to Stripe charges to events.
 
 ### Phase 3 — Visibility (Week 4)
-11. Build the Airtable Interface "Financial Command Center" with 5 pages above.
-12. Set up a weekly digest email (Make scenario or Airtable automation): MRR, cash, recent KPIs.
-13. **Deliverable:** Peter + Violet have a single URL to check the business's financial health.
+13. Build the Airtable Interface "Financial Command Center" with 5 pages above.
+14. Set up a weekly digest email (Make scenario or Airtable automation): MRR, cash, recent KPIs.
+15. **Deliverable:** Peter + Violet have a single URL to check the business's financial health.
 
 ### Phase 4 — Surveys & qualitative KPIs (Weeks 5–6, optional)
-14. Set up Tally form for post-event survey.
-15. Build Make Scenario 7.
-16. Add NPS + Testimonial Rate to KPI Snapshots and dashboard.
+16. Set up Tally form for post-event survey.
+17. Build Make Scenario 7.
+18. Add NPS + Testimonial Rate to KPI Snapshots and dashboard.
 
 ---
 
@@ -398,11 +398,11 @@ These are still open from the original setup and block parts of this plan:
 
 ## 10. Next concrete step
 
-Given your selections (full plan first, Plaid/accounting sync, Return Rate KPI first), the immediate next action is to confirm the **expense source path** in §8 question 1. Once that's locked, we can:
+Expense source is locked (QuickBooks + Stripe API, Lunch Money as fallback). To start Phase 1 I need answers to the four remaining questions in §8 (MRR definition, cash reserve target, survey tool, series-counting rule). Once those are settled I'll:
 
-1. Create the four Phase 1 tables in Airtable.
-2. Seed Subscriptions.
-3. Decide on QuickBooks vs CSV.
-4. Begin Phase 2 automation.
+1. Create the six new tables in Airtable (Subscriptions, Expenses, Monthly Financials, KPI Snapshots, Surveys, Testimonials).
+2. Seed Subscriptions with your current recurring tools.
+3. Backfill the last 3 months of expenses from Capital One CSV so we have history to test rollups against.
+4. Move to Phase 2 automation (QuickBooks + Stripe scenarios).
 
-Reply with answers to §8 and I'll start building.
+Reply with answers to §8 questions 2–5 and I'll start building.
