@@ -16,6 +16,7 @@
 | **TicketTailor** | Ticket sales / event creation (existing) | Webhooks → Airtable (existing) |
 | **ActiveCampaign** | Email + post-event communication | Native Make connector; hosts post-event survey email |
 | **Tally** | Post-event NPS form | Webhook → Make → Surveys table |
+| **Listify** | Internal task management + team messaging | MCP integration; venue-payout tasks assigned to Johanna |
 | **Airtable** | System of record for everything in this plan | — |
 | **Make.com** | All automation | — |
 
@@ -223,7 +224,8 @@ One row per venue payment per event. **Created automatically 3 days after Event 
 | Override Amount | Currency | Manual override when a deal differs from the rule |
 | Final Amount | Formula | `IF({Override Amount}, {Override Amount}, {Calculated Amount})` |
 | Status | Single select | **Awaiting Send** (default), **Sent to Johanna**, **Paid**, **Disputed**, **Waived** |
-| Notification Sent At | Date/time | When Johanna got the "please pay X" message |
+| Notification Sent At | Date/time | When Johanna got the email + Listify task |
+| Listify Task ID | Single line text | Cross-reference to the task created in Listify so we can close it on payment |
 | Paid Date | Date | When the PayPal txn lands |
 | Payment Reference | Single line text | PayPal txn ID |
 | Linked Expense | Linked → Expenses | Auto-linked when Scenario 5c sees the matching PayPal outflow |
@@ -368,7 +370,7 @@ SWITCH({Matched Pricing Rule.Charge Type},
 4. `airtable:searchRecords` (Venues) — match `PayPal Email = recipient_email`
 5. `airtable:searchRecords` (Venue Payouts) — match by `Venue` + `Event Date` proximity (within 14 days), `Status != Paid`
 6. Router →
-   - **Match found:** create Expense (Vendor=Venue Name, Category=Venue, Linked Venue Payout=matched, Account=PayPal). Update the Venue Payout: `Status=Paid`, `Paid Date`, `Payment Reference`, `Linked Expense`, `Reconciled` (auto via formula).
+   - **Match found:** create Expense (Vendor=Venue Name, Category=Venue, Linked Venue Payout=matched, Account=PayPal). Update the Venue Payout: `Status=Paid`, `Paid Date`, `Payment Reference`, `Linked Expense`, `Reconciled` (auto via formula). Also mark the corresponding Listify task complete via `update_task` using the stored `Listify Task ID`.
    - **No match:** create Expense with `Needs Categorization=true`, route to review queue.
 
 ### Scenario 5d — Venue Payout Trigger + Johanna notification (NEW, the auto-payout heart of the system)
@@ -387,11 +389,21 @@ SWITCH({Matched Pricing Rule.Charge Type},
    b. If exactly one rule matches → proceed. If zero → log to "Missing Pricing Rule" view, skip notification, alert Peter. If multiple → use the priority/narrowness tiebreaker.
    c. `airtable:createRecord` (Venue Payouts) — Event link, Matched Pricing Rule, Status = Awaiting Send. The `Calculated Amount` formula resolves on creation.
    d. Read back the just-created row to get the resolved `Final Amount`.
-3. **Batch all of today's payouts into a single email to Johanna** (digest, not per-event spam):
-   - Subject: "Venue payouts due today (N events)"
+3. **Notify Johanna via two channels (email digest + per-payout Listify task):**
+
+   **a. Email digest** (one email per run, not per event):
+   - To: `finance.interplay@gmail.com`
+   - Subject: `Venue payouts due today (N events)`
    - Body: a table with Event Name, Venue, PayPal Email, Amount, link to the Airtable record
-   - Send via Make's email module or via ActiveCampaign if Johanna prefers her existing inbox routing
-4. Update each Venue Payout row → Status = `Sent to Johanna`, Notification Sent At = now.
+
+   **b. Listify task** (one task per payout, so each can be checked off independently):
+   - Assignee: Johanna
+   - Title: `Pay {Venue Name} — ${Final Amount} for {Event Name} ({Event Date})`
+   - Description includes: venue's PayPal email, payout amount, event link, "mark complete after PayPal txn confirmation"
+   - Due date: same day (today)
+   - Project: a dedicated `Venue Payouts` project in Listify (set up in Phase 2 step 13)
+
+4. Update each Venue Payout row → Status = `Sent to Johanna`, Notification Sent At = now, store the Listify task ID for cross-reference.
 
 **The loop closes:** Johanna sends each PayPal payment. Scenario 5c (PayPal → Expenses + Venue Payout reconciliation) detects the outgoing transaction, links it to the Venue Payout row, flips Status = `Paid`, and the `Reconciled` formula evaluates true.
 
@@ -494,24 +506,25 @@ Single Interface with these pages:
 10. Build Make Scenario 5 (QuickBooks → Expenses), with Subscription matching driving Frequency/amortization.
 11. Build Make Scenario 5b (Stripe → Expenses + Event reconciliation) — runs after #10 daily.
 12. Build Make Scenario 5c (PayPal → Expenses + Venue Payout reconciliation).
-13. Build Make Scenario 5d (Venue Payout Trigger + Johanna notification) — the heart of the auto-payout flow. Test with a fake event T+3 days in the past.
-14. Verify Stripe metadata flow from TicketTailor; add metadata-write step if missing.
-15. Build Make Scenario 6 (Monthly KPI Rollup) — Return Rate first.
-16. Run rollup retroactively for last 6 months with overridden date variables.
-17. **Deliverable:** every event closes itself out automatically — 3 days after the event, Johanna gets an email saying "pay X to Y", she sends via PayPal, the expense lands and reconciles itself. Monthly KPIs auto-populate.
+13. Set up a `Venue Payouts` project in Listify, add Johanna as a member, capture the project ID for Make.
+14. Build Make Scenario 5d (Venue Payout Trigger + Johanna notification: email + Listify task) — the heart of the auto-payout flow. Test with a fake event T+3 days in the past.
+15. Verify Stripe metadata flow from TicketTailor; add metadata-write step if missing.
+16. Build Make Scenario 6 (Monthly KPI Rollup) — Return Rate first.
+17. Run rollup retroactively for last 6 months with overridden date variables.
+18. **Deliverable:** every event closes itself out automatically — 3 days after the event, Johanna gets an email + Listify task saying "pay X to Y", she sends via PayPal, the expense lands and reconciles itself, the task auto-closes. Monthly KPIs auto-populate.
 
 ### Phase 3 — Visibility (Week 4)
-18. Build the Airtable Interface "Financial Command Center" with 5 pages above.
-19. Add a "Venue Payouts — Awaiting Send" view to Page 1 (Johanna's queue, also useful for Peter/Violet to monitor).
-20. Add a "Missing Pricing Rule" view (events where Scenario 5d couldn't find a matching rule).
-21. Weekly digest email: MRR, cash, recent KPIs, pending venue payouts.
-22. **Deliverable:** Peter + Violet have a single URL for business health.
+19. Build the Airtable Interface "Financial Command Center" with 5 pages above.
+20. Add a "Venue Payouts — Awaiting Send" view to Page 1 (Johanna's queue, also useful for Peter/Violet to monitor).
+21. Add a "Missing Pricing Rule" view (events where Scenario 5d couldn't find a matching rule).
+22. Weekly digest email: MRR, cash, recent KPIs, pending venue payouts.
+23. **Deliverable:** Peter + Violet have a single URL for business health.
 
 ### Phase 4 — Surveys & qualitative KPIs (Weeks 5–6, optional)
-23. Set up Tally form for post-event NPS.
-24. Add Tally link to AC's existing post-event email automation.
-25. Build Make Scenario 7 (Tally webhook → Surveys table).
-26. Add NPS to KPI Snapshots and dashboard.
+24. Set up Tally form for post-event NPS.
+25. Add Tally link to AC's existing post-event email automation.
+26. Build Make Scenario 7 (Tally webhook → Surveys table).
+27. Add NPS to KPI Snapshots and dashboard.
 
 ---
 
@@ -558,8 +571,8 @@ Sum and rank. Anything scoring ≥15 of 20 goes on the "do next" list. Below 10 
 7. **Hybrid pricing tiebreaker.** When a venue uses "greater of X% or $Y minimum", we'll confirm the exact formula against each contract during Phase 1 step 5.
 8. ~~Venmo migration goal.~~ **DECIDED:** all venue payouts migrate to PayPal as of now. No new Venmo outflows. Scenario 5d (Venmo CSV) removed from the plan.
 9. ~~Events.Status field.~~ **DECIDED:** does not currently exist; will be added in Phase 1 step 2 with values `Scheduled` (default), `Held`, `Cancelled`, `Refunded`. The auto-payout trigger is **time-based** (Event Date + 3 days), gated by `Status ≠ Cancelled`.
-10. **Johanna's notification channel.** Default proposal: a daily digest email at 9am listing all venue payouts due that day with PayPal email + amount. Acceptable, or does she prefer Slack / a dedicated Airtable view?
-11. **Johanna's contact info.** Need her email address (and Slack handle if applicable) to wire up Scenario 5d.
+10. ~~Johanna's notification channel.~~ **DECIDED:** dual notification — email digest to `finance.interplay@gmail.com` + per-payout task assigned to her in a Listify `Venue Payouts` project. Task auto-closes when the PayPal txn reconciles.
+11. ~~Johanna's contact info.~~ **DECIDED:** `finance.interplay@gmail.com`. (Listify member ID will be captured during Phase 2 step 13.)
 
 ---
 
@@ -575,17 +588,12 @@ These are still open from the original setup and block parts of this plan:
 
 ## 10. Next concrete step
 
-**Locked:** tech stack, MRR (hybrid), cash reserve target, survey tool (AC + Tally), series-counting rule (Option A), setup/teardown default, Venmo retired, Events.Status to be added.
+**All decisions locked.** Only data drops remain:
 
-**Still needed before Phase 1 build:**
-
-*Decisions* (§8 questions 10, 11):
-- Johanna's notification channel — accept default of daily 9am digest email?
-- Johanna's email address (and Slack handle if relevant)
-
-*Data*:
 - **Venue master list:** for each venue, name, region, PayPal email, contact name/phone.
 - **Venue pricing rules** (one or more rows per venue): charge type, rates, any duration brackets or format-specific overrides. Alchemy House example is encoded in §2.6 as a template.
 - **Subscription master list:** every recurring tool/service with vendor, frequency, amount, renewal date.
 
-Once those land, I'll create the eight new tables (Subscriptions, Expenses, Venues, Venue Pricing Rules, Venue Payouts, Monthly Financials, KPI Snapshots, Surveys), add the Status and Counts For Return Rate fields to Events, wire the time-based auto-payout trigger, and move to Phase 2.
+Once those land, I'll create the eight new tables (Subscriptions, Expenses, Venues, Venue Pricing Rules, Venue Payouts, Monthly Financials, KPI Snapshots, Surveys), add the Status and Counts For Return Rate fields to Events, wire the time-based auto-payout trigger with dual email + Listify notification, and move to Phase 2.
+
+The remaining §8 item 7 (hybrid pricing tiebreaker per contract) gets resolved during Phase 1 step 5 when we encode the rules — not a blocker.
