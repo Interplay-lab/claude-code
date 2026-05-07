@@ -12,7 +12,7 @@
 | **QuickBooks Online** | Accounting / categorized transactions | Native Make connector — primary expense source |
 | **Stripe** | Card processing for ticket sales | Native Make connector — per-charge fees, payout reconciliation |
 | **PayPal** | **Exclusive** payment method for venue payouts | Native Make connector — outbound expense tracking |
-| **Venmo** | Occasional venue payouts and rare participant payments | **No public API for personal Venmo.** Monthly CSV export only — flagged as a tracking liability; goal is to eliminate or migrate to PayPal/Stripe |
+| **Venmo** | Historical only — **as of now, all venue payouts go through PayPal.** No new Venmo outflows. | No active integration. Past Venmo activity is captured by the Capital One side of the bank ledger via QuickBooks. |
 | **TicketTailor** | Ticket sales / event creation (existing) | Webhooks → Airtable (existing) |
 | **ActiveCampaign** | Email + post-event communication | Native Make connector; hosts post-event survey email |
 | **Tally** | Post-event NPS form | Webhook → Make → Surveys table |
@@ -45,13 +45,15 @@ This plan adds three layers on top of what exists:
                           ▲
 ┌─────────────────────────────────────────────────────────────┐
 │  LAYER 1 — RAW DATA (new tables + existing)                 │
-│  NEW:  • Expenses        (one row per transaction)          │
-│        • Subscriptions   (master list of recurring tools)   │
-│        • Venues          (pricing rules for auto-payout)    │
-│        • Venue Payouts   (calculated + actual)              │
-│        • Surveys         (post-event NPS responses)         │
+│  NEW:  • Expenses             (one row per transaction)     │
+│        • Subscriptions        (master list of recurring)    │
+│        • Venues               (venue contacts + metadata)   │
+│        • Venue Pricing Rules  (one row per pricing scheme)  │
+│        • Venue Payouts        (calculated + actual)         │
+│        • Surveys              (post-event NPS responses)    │
 │  EXISTING: Events, Attendance, Facilitator Payouts,         │
 │            Salary Log, Time Entries, Series Rosters         │
+│  TO ADD TO Events: Status field (Scheduled/Held/Cancelled)  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -147,74 +149,105 @@ Populated by Make.com on the 1st of each month for the prior month.
 | NPS | Number | (% Promoters − % Detractors) from Surveys |
 | Notes | Long text | |
 
-### 2.5 `Venues` — pricing rules for auto-calculated payouts
+### 2.5 `Venues` — venue contacts + metadata
 
-The single biggest reason this table exists: **right now venue payouts are calculated by hand**, and venues use different schemes (per-hour, % of gross, flat rate, hybrid). Encoding the rules here lets us auto-generate the payout amount the moment an event closes, which removes a recurring source of math errors and cash-flow surprises.
+Pure metadata about each venue. Pricing lives in §2.6 because **a single venue can have multiple pricing rules** (Alchemy House: 30% of gross for normal events, $500 flat for day-long events).
 
 | Field | Type | Notes |
 |---|---|---|
-| Venue Name | Single line text | e.g. "Boulder Studio Collective" |
+| Venue Name | Single line text | e.g. "Alchemy House" |
 | Region | Single select | Bay Area, Boulder, NYC, Other |
 | Address | Long text | |
-| Charge Type | Single select | **Per-Hour**, **Percentage of Gross**, **Flat Rate**, **Hybrid (greater of)**, **Hybrid (lesser of)**, **Free / Donation** |
-| Hourly Rate | Currency | Used by Per-Hour and Hybrid |
-| Percentage Rate | Number (%) | Used by Percentage and Hybrid (e.g. 20 = 20%) |
-| Flat Fee | Currency | Used by Flat Rate |
-| Minimum | Currency | Optional floor — e.g. "20% of gross or $200, whichever is greater" |
-| Includes Setup/Teardown | Checkbox | If true, billable hours = (event end − event start) + setup/teardown buffer |
-| Setup/Teardown Hours | Number | Default 0.5 each side |
-| Payment Method | Single select | PayPal, Venmo, Check, ACH |
-| PayPal Email | Email | For PayPal payouts |
-| Venmo Handle | Single line text | For the rare Venmo payout |
+| Payment Method | Single select | **PayPal** (default and effectively the only option going forward), Check, ACH |
+| PayPal Email | Email | Required for PayPal payouts |
 | Contact Name | Single line text | |
 | Contact Email | Email | |
 | Contact Phone | Phone | |
 | Status | Single select | Active, Inactive, Past Only |
-| Notes | Long text | Edge cases, history, off-menu deals |
+| Default Setup/Teardown Hours | Number | Default 0.5 each side; per-venue overridable |
+| Notes | Long text | Off-menu deals, history, contract clauses |
 
-**Add a `Venue` link field to the existing `Events` table.** Every event picks a venue. This unlocks the formula in §2.6.
+**Add a `Venue` link field to the existing `Events` table.** Every event picks a venue.
 
-### 2.6 `Venue Payouts` — calculated + actual
+### 2.6 `Venue Pricing Rules` — one row per pricing scheme
 
-One row per venue payment per event. Created automatically when an event is marked `Status = Complete`.
+This is what makes the Alchemy House case work. Each venue can have multiple rules; the rule that matches the specific event wins. Match criteria: event format and event duration.
+
+| Field | Type | Notes |
+|---|---|---|
+| Rule Name | Single line text | Free label, e.g. "Alchemy House — Default %", "Alchemy House — Day-Long Flat" |
+| Venue | Linked → Venues | |
+| Match Format | Multiple select | Optional. If set, rule only applies to these formats (Intro, Deepen, Relational Dojo, AE). Blank = any format. |
+| Match Min Hours | Number | Optional duration floor (inclusive). Blank = 0. |
+| Match Max Hours | Number | Optional duration ceiling (exclusive). Blank = ∞. |
+| Charge Type | Single select | Per-Hour, Percentage of Gross, Flat Rate, Hybrid (greater of), Hybrid (lesser of), Free / Donation |
+| Hourly Rate | Currency | |
+| Percentage Rate | Number (%) | e.g. 30 = 30% |
+| Flat Fee | Currency | |
+| Minimum | Currency | Optional floor for hybrid |
+| Effective From | Date | When this rule starts being valid |
+| Effective To | Date | Optional. Blank = still in effect. |
+| Priority | Number | Higher number wins ties. Default 0. |
+| Notes | Long text | |
+
+**Alchemy House example:**
+
+| Rule Name | Match Min Hours | Match Max Hours | Charge Type | Percentage Rate | Flat Fee |
+|---|---|---|---|---|---|
+| Alchemy House — Default % | (blank) | 8 | Percentage of Gross | 30 | — |
+| Alchemy House — Day-Long Flat | 8 | (blank) | Flat Rate | — | $500 |
+
+**Rule selection logic** (used by the formula on Venue Payouts):
+1. Filter to rules where `Venue` matches.
+2. Filter where `Effective From ≤ Event Date AND (Effective To is empty OR Effective To ≥ Event Date)`.
+3. Filter where `Match Format` is empty OR contains the event's format.
+4. Filter where `Match Min Hours ≤ event duration < Match Max Hours` (treating blanks as 0 and ∞).
+5. If multiple match, pick the one with highest `Priority`, then narrowest duration range.
+6. If none match, log to a "Missing Pricing Rule" view and fall back to $0 with a warning.
+
+### 2.7 `Venue Payouts` — calculated + actual
+
+One row per venue payment per event. **Created automatically 3 days after Event Date** (refund-window buffer), provided `Events.Status ≠ Cancelled`.
 
 | Field | Type | Notes |
 |---|---|---|
 | Event | Linked → Events | |
 | Venue | Linked → Venues | Lookup from Event |
 | Event Date | Lookup | From Event |
-| Billable Hours | Formula | `({Event End} − {Event Start}) + IF({Venue.Includes Setup/Teardown}, 2 × {Venue.Setup/Teardown Hours}, 0)` |
+| Event Duration Hours | Lookup | From Event (or computed `Event End − Event Start`) |
+| Event Format | Lookup | From Event |
+| Billable Hours | Formula | `{Event Duration Hours} + IF({Venue.Default Setup/Teardown Hours}, 2 × {Venue.Default Setup/Teardown Hours}, 1)` |
 | Adjusted Gross | Lookup | From Event |
-| Calculated Amount | Formula | See "auto-calc formula" below |
+| Matched Pricing Rule | Linked → Venue Pricing Rules | Set by the trigger scenario when the row is created |
+| Calculated Amount | Formula | Computed from `Matched Pricing Rule` (see formula below) |
 | Override Amount | Currency | Manual override when a deal differs from the rule |
 | Final Amount | Formula | `IF({Override Amount}, {Override Amount}, {Calculated Amount})` |
-| Status | Single select | Pending, Paid, Disputed, Waived |
-| Paid Date | Date | |
-| Payment Method | Single select | PayPal, Venmo, Check, ACH |
-| Payment Reference | Single line text | PayPal txn ID, Venmo memo, check number |
-| Linked Expense | Linked → Expenses | Created when the actual outflow lands in PayPal/Venmo and matches |
-| Reconciled | Checkbox | Auto-checked when Linked Expense.Amount = Final Amount ± $0.01 |
+| Status | Single select | **Awaiting Send** (default), **Sent to Johanna**, **Paid**, **Disputed**, **Waived** |
+| Notification Sent At | Date/time | When Johanna got the "please pay X" message |
+| Paid Date | Date | When the PayPal txn lands |
+| Payment Reference | Single line text | PayPal txn ID |
+| Linked Expense | Linked → Expenses | Auto-linked when Scenario 5c sees the matching PayPal outflow |
+| Reconciled | Formula | `{Linked Expense} != BLANK() AND ABS({Linked Expense.Amount} − {Final Amount}) < 0.01` |
 | Notes | Long text | |
 
-**Auto-calc formula (`Calculated Amount`):**
+**`Calculated Amount` formula (reads from the matched rule):**
+
 ```
-SWITCH({Venue.Charge Type},
-  "Per-Hour",            {Venue.Hourly Rate} × {Billable Hours},
-  "Percentage of Gross", ({Venue.Percentage Rate} / 100) × {Adjusted Gross},
-  "Flat Rate",           {Venue.Flat Fee},
-  "Hybrid (greater of)", MAX({Venue.Hourly Rate} × {Billable Hours},
-                             ({Venue.Percentage Rate} / 100) × {Adjusted Gross},
-                             {Venue.Minimum}),
-  "Hybrid (lesser of)",  MIN({Venue.Hourly Rate} × {Billable Hours},
-                             ({Venue.Percentage Rate} / 100) × {Adjusted Gross}),
+SWITCH({Matched Pricing Rule.Charge Type},
+  "Per-Hour",            {Matched Pricing Rule.Hourly Rate} × {Billable Hours},
+  "Percentage of Gross", ({Matched Pricing Rule.Percentage Rate} / 100) × {Adjusted Gross},
+  "Flat Rate",           {Matched Pricing Rule.Flat Fee},
+  "Hybrid (greater of)", MAX({Matched Pricing Rule.Hourly Rate} × {Billable Hours},
+                             ({Matched Pricing Rule.Percentage Rate} / 100) × {Adjusted Gross},
+                             {Matched Pricing Rule.Minimum}),
+  "Hybrid (lesser of)",  MIN({Matched Pricing Rule.Hourly Rate} × {Billable Hours},
+                             ({Matched Pricing Rule.Percentage Rate} / 100) × {Adjusted Gross}),
   "Free / Donation",     0,
   0
 )
 ```
 
-**Triggering creation:** an Airtable automation on Events watches for `Status` becoming `Complete` and creates a Venue Payout row. The Make-side reconciliation scenario (§4, Scenario 5d) later links the actual PayPal/Venmo outflow to this row.
-
-### 2.7 `Surveys` (Phase 2)
+### 2.8 `Surveys` (Phase 2)
 
 | Field | Type | Notes |
 |---|---|---|
@@ -338,21 +371,34 @@ SWITCH({Venue.Charge Type},
    - **Match found:** create Expense (Vendor=Venue Name, Category=Venue, Linked Venue Payout=matched, Account=PayPal). Update the Venue Payout: `Status=Paid`, `Paid Date`, `Payment Reference`, `Linked Expense`, `Reconciled` (auto via formula).
    - **No match:** create Expense with `Needs Categorization=true`, route to review queue.
 
-### Scenario 5d — Venmo CSV ingest (NEW, manual)
+### Scenario 5d — Venue Payout Trigger + Johanna notification (NEW, the auto-payout heart of the system)
 
-**Why this is half-manual:** personal Venmo has no public API. Venmo Business does, but you're not on it.
+**Why this exists:** the user's flow is "event happens → wait 3 days for refunds to settle → calculate venue payout → tell Johanna to send the PayPal payment." This scenario implements steps 2–4. Johanna sends the PayPal payment manually (we deliberately do not auto-send funds); Scenario 5c then closes the loop when the outflow appears in PayPal.
 
-**Path:** monthly download of the Venmo CSV statement, dropped into a watched Google Drive folder.
-**Trigger:** Make watches the Drive folder for new files.
-**Modules:**
-1. `googleDrive:watchFiles` (folder: "Venmo Statements")
-2. `csv:parse`
-3. Iterator
-4. Dedup by `External ID = venmo.transaction_id`
-5. Same matching logic as Scenario 5c (Venues by handle, Venue Payouts by date proximity)
-6. Create Expenses rows + reconcile.
+**Trigger:** Schedule, daily at 09:00 PT
+**Logic per run:**
+1. `airtable:searchRecords` (Events) — find events where:
+   - `Event Date ≤ TODAY() − 3 days`
+   - `Status ≠ Cancelled` (and ideally = Held)
+   - No existing linked Venue Payout row
+   - `Venue` is set
+2. For each matching event, iterator:
+   a. `airtable:searchRecords` (Venue Pricing Rules) with the rule-selection filter from §2.6 step 5
+   b. If exactly one rule matches → proceed. If zero → log to "Missing Pricing Rule" view, skip notification, alert Peter. If multiple → use the priority/narrowness tiebreaker.
+   c. `airtable:createRecord` (Venue Payouts) — Event link, Matched Pricing Rule, Status = Awaiting Send. The `Calculated Amount` formula resolves on creation.
+   d. Read back the just-created row to get the resolved `Final Amount`.
+3. **Batch all of today's payouts into a single email to Johanna** (digest, not per-event spam):
+   - Subject: "Venue payouts due today (N events)"
+   - Body: a table with Event Name, Venue, PayPal Email, Amount, link to the Airtable record
+   - Send via Make's email module or via ActiveCampaign if Johanna prefers her existing inbox routing
+4. Update each Venue Payout row → Status = `Sent to Johanna`, Notification Sent At = now.
 
-**Recommendation called out separately in §8:** since Venmo is a tracking liability, the long-term action is to migrate any remaining Venmo-paid venues to PayPal. The CSV path exists only to keep the books accurate while that migration happens.
+**The loop closes:** Johanna sends each PayPal payment. Scenario 5c (PayPal → Expenses + Venue Payout reconciliation) detects the outgoing transaction, links it to the Venue Payout row, flips Status = `Paid`, and the `Reconciled` formula evaluates true.
+
+**Edge cases:**
+- Late refund (after T+3): refund window closed, payout already calculated, then a chargeback hits. The Adjusted Gross will update via Scenario 5b but the Venue Payout's `Calculated Amount` won't recompute (it locked at creation). A "Refund After Payout" view flags these for manual reconciliation.
+- Cancelled event: skipped — but if the event is cancelled *after* the payout was created, the row needs to be manually marked `Waived` (we won't auto-reverse).
+- Pricing rule changed retroactively: the rule that was matched at creation is what gets used. Editing the rule after the fact won't retroactively change historical payouts.
 
 ### Scenario 6 — Monthly KPI Rollup (NEW)
 
@@ -434,34 +480,38 @@ Single Interface with these pages:
 ## 6. Build sequence
 
 ### Phase 1 — Foundation (Week 1)
-1. Create `Subscriptions` table, seed with all current tools and their true frequencies (this is what powers correct annual amortization).
-2. Create `Venues` table; seed with every venue you've used. For each, encode the charge rule (per-hour, %, flat, hybrid). This is the most error-prone step — get a second pair of eyes on it.
-3. Add `Venue` link field to existing `Events` table; backfill it for past events.
-4. Create `Venue Payouts`, `Expenses`, `Monthly Financials`, `KPI Snapshots` tables.
-5. Add Airtable automation: when `Events.Status = Complete`, auto-create a Venue Payout row.
-6. Manually import expenses for the last 3 months (CSV from Capital One) to seed history.
-7. **Deliverable:** you can answer "what's our minimum monthly expenditure?" from Subscriptions and "what does this venue charge us?" from Venues.
+1. Create `Subscriptions` table, seed with all current tools and their true frequencies.
+2. Add `Status` single-select field to existing `Events` table with values `Scheduled` (default), `Held`, `Cancelled`, `Refunded`. Backfill historical events.
+3. Add `Counts For Return Rate` checkbox to Events. Default checked. Set to unchecked for sessions 2–N of any series.
+4. Create `Venues` table (metadata only).
+5. Create `Venue Pricing Rules` table; seed with at least one rule per venue. For Alchemy House and any other tiered venues, encode each rule. **Most error-prone step — second pair of eyes recommended.**
+6. Add `Venue` link field to Events; backfill for past events.
+7. Create `Venue Payouts`, `Expenses`, `Monthly Financials`, `KPI Snapshots` tables.
+8. Manually import expenses for the last 3 months from Capital One CSV via QuickBooks to seed history.
+9. **Deliverable:** "What's our minimum monthly expenditure?" answerable from Subscriptions; "What does Alchemy House charge for a day-long event?" answerable from Venue Pricing Rules.
 
 ### Phase 2 — Automation (Weeks 2–3)
-8. Build Make Scenario 5 (QuickBooks → Expenses), with Subscription matching driving Frequency/amortization.
-9. Build Make Scenario 5b (Stripe → Expenses + Event reconciliation) — runs after #8 daily.
-10. Build Make Scenario 5c (PayPal → Expenses + Venue Payout reconciliation).
-11. Build Make Scenario 5d (Venmo CSV ingest) — wire up the Drive folder.
-12. Verify Stripe metadata flow from TicketTailor; add metadata-write step if missing.
-13. Build Make Scenario 6 (Monthly KPI Rollup) — Return Rate first.
-14. Run rollup retroactively for last 6 months with overridden date variables.
-15. **Deliverable:** every event closes itself out automatically — venue payout calculated, PayPal txn matched, books balanced. Monthly KPIs auto-populate.
+10. Build Make Scenario 5 (QuickBooks → Expenses), with Subscription matching driving Frequency/amortization.
+11. Build Make Scenario 5b (Stripe → Expenses + Event reconciliation) — runs after #10 daily.
+12. Build Make Scenario 5c (PayPal → Expenses + Venue Payout reconciliation).
+13. Build Make Scenario 5d (Venue Payout Trigger + Johanna notification) — the heart of the auto-payout flow. Test with a fake event T+3 days in the past.
+14. Verify Stripe metadata flow from TicketTailor; add metadata-write step if missing.
+15. Build Make Scenario 6 (Monthly KPI Rollup) — Return Rate first.
+16. Run rollup retroactively for last 6 months with overridden date variables.
+17. **Deliverable:** every event closes itself out automatically — 3 days after the event, Johanna gets an email saying "pay X to Y", she sends via PayPal, the expense lands and reconciles itself. Monthly KPIs auto-populate.
 
 ### Phase 3 — Visibility (Week 4)
-16. Build the Airtable Interface "Financial Command Center" with 5 pages above.
-17. Add a "Venue Payouts — Pending" view to Page 1 (which payouts are calculated but not yet sent).
-18. Weekly digest email: MRR, cash, recent KPIs, pending venue payouts.
-19. **Deliverable:** Peter + Violet have a single URL for business health.
+18. Build the Airtable Interface "Financial Command Center" with 5 pages above.
+19. Add a "Venue Payouts — Awaiting Send" view to Page 1 (Johanna's queue, also useful for Peter/Violet to monitor).
+20. Add a "Missing Pricing Rule" view (events where Scenario 5d couldn't find a matching rule).
+21. Weekly digest email: MRR, cash, recent KPIs, pending venue payouts.
+22. **Deliverable:** Peter + Violet have a single URL for business health.
 
 ### Phase 4 — Surveys & qualitative KPIs (Weeks 5–6, optional)
-20. Tally form for post-event survey.
-21. Build Make Scenario 7.
-22. Add NPS to KPI Snapshots and dashboard.
+23. Set up Tally form for post-event NPS.
+24. Add Tally link to AC's existing post-event email automation.
+25. Build Make Scenario 7 (Tally webhook → Surveys table).
+26. Add NPS to KPI Snapshots and dashboard.
 
 ---
 
@@ -475,8 +525,8 @@ The system is only useful if someone owns each piece. Suggested RACI (you should
 | "Needs Categorization" review queue | Violet | Peter | — |
 | Subscription audit (quarterly) | Violet | Peter | — |
 | Venue rule maintenance | Peter | Peter | Violet |
-| Venue payout sending (PayPal) | Violet | Peter | — |
-| Venmo CSV upload (monthly) | Violet | Peter | — |
+| Venue payout sending (PayPal, manual) | **Johanna** | Violet | Peter |
+| Missing-Pricing-Rule queue triage | Peter | Peter | Violet |
 | KPI review (monthly) | Peter | Peter | Violet |
 | Dashboard maintenance | Violet | Peter | — |
 | Survey follow-up | Kayla / Briana | Violet | — |
@@ -504,10 +554,12 @@ Sum and rank. Anything scoring ≥15 of 20 goes on the "do next" list. Below 10 
 3. ~~Cash reserve target.~~ **DECIDED:** 3× monthly Subscription Floor + Salaries.
 4. ~~Survey tool.~~ **DECIDED:** ActiveCampaign sends the email (uses existing post-event automation); Tally hosts the form. Confirmed TicketTailor has no built-in survey tool. v0 fallback: AC click-tracking only if Tally setup is delayed.
 5. ~~Series-counting for Return Rate.~~ **DECIDED (Option A):** each event counts as one attendance regardless of session count. A series enrollment counts once (at the first session). One-off events always count. Implemented via `Counts For Return Rate` checkbox on Events — checked for one-offs and session 1 of any series, unchecked for sessions 2–N.
-6. **Venue billable-hours convention.** Does "billable hours" include setup/teardown by default? Default proposal: yes, 30 min each side, per-venue overridable via the `Includes Setup/Teardown` checkbox.
-7. **Hybrid pricing tiebreaker.** When a venue uses "greater of X% or $Y minimum", confirm the formula matches your contracts. We'll review each venue's contract during Phase 1 step 2.
-8. **Venmo migration goal.** Set a target date by which all venues currently paid via Venmo migrate to PayPal? This is the only way the books stay clean long-term.
-9. **Event status field.** Confirm the existing Events table has a `Status` field with a `Complete` value (or what we should use as the trigger for venue payout creation). If not, we'll add one.
+6. ~~Venue billable-hours convention.~~ **DECIDED:** 30 min setup + 30 min teardown included by default; per-venue overridable.
+7. **Hybrid pricing tiebreaker.** When a venue uses "greater of X% or $Y minimum", we'll confirm the exact formula against each contract during Phase 1 step 5.
+8. ~~Venmo migration goal.~~ **DECIDED:** all venue payouts migrate to PayPal as of now. No new Venmo outflows. Scenario 5d (Venmo CSV) removed from the plan.
+9. ~~Events.Status field.~~ **DECIDED:** does not currently exist; will be added in Phase 1 step 2 with values `Scheduled` (default), `Held`, `Cancelled`, `Refunded`. The auto-payout trigger is **time-based** (Event Date + 3 days), gated by `Status ≠ Cancelled`.
+10. **Johanna's notification channel.** Default proposal: a daily digest email at 9am listing all venue payouts due that day with PayPal email + amount. Acceptable, or does she prefer Slack / a dedicated Airtable view?
+11. **Johanna's contact info.** Need her email address (and Slack handle if applicable) to wire up Scenario 5d.
 
 ---
 
@@ -523,17 +575,17 @@ These are still open from the original setup and block parts of this plan:
 
 ## 10. Next concrete step
 
-**Locked:** tech stack, MRR (hybrid), cash reserve target, survey tool (AC + Tally), series-counting rule (Option A).
+**Locked:** tech stack, MRR (hybrid), cash reserve target, survey tool (AC + Tally), series-counting rule (Option A), setup/teardown default, Venmo retired, Events.Status to be added.
 
 **Still needed before Phase 1 build:**
 
-*Decisions* (§8 questions 6, 8, 9):
-- Setup/teardown convention for venue billable hours — accept default of 30 min each side?
-- Venmo migration target date, or "indefinite"?
-- Confirm `Events.Status` field exists with a `Complete` value, or permission to add one
+*Decisions* (§8 questions 10, 11):
+- Johanna's notification channel — accept default of daily 9am digest email?
+- Johanna's email address (and Slack handle if relevant)
 
 *Data*:
-- Venue master list: for each venue, name, region, charge type (per-hour / % / flat / hybrid), exact rates, minimums, payment method (PayPal/Venmo), and PayPal email or Venmo handle. A short Google Doc or CSV is fine.
-- Subscription master list: every recurring tool/service with vendor, frequency, amount, and renewal date.
+- **Venue master list:** for each venue, name, region, PayPal email, contact name/phone.
+- **Venue pricing rules** (one or more rows per venue): charge type, rates, any duration brackets or format-specific overrides. Alchemy House example is encoded in §2.6 as a template.
+- **Subscription master list:** every recurring tool/service with vendor, frequency, amount, renewal date.
 
-Once those land, I'll create the seven new tables (Subscriptions, Expenses, Venues, Venue Payouts, Monthly Financials, KPI Snapshots, Surveys), wire the auto-payout automation, seed Subscriptions and Venues, and move to Phase 2.
+Once those land, I'll create the eight new tables (Subscriptions, Expenses, Venues, Venue Pricing Rules, Venue Payouts, Monthly Financials, KPI Snapshots, Surveys), add the Status and Counts For Return Rate fields to Events, wire the time-based auto-payout trigger, and move to Phase 2.
