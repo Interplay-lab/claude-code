@@ -78,7 +78,9 @@ The "minimum monthly expenditure floor" comes from summing this table.
 | Account | Single select | Capital One, Stripe, Cash, Other |
 | Receipt | Attachment | |
 | Linked Event | Linked → Events | For event-specific costs (venue, travel) |
-| Source | Single select | Plaid, Manual, Stripe API, CSV Import |
+| Source | Single select | QuickBooks, Stripe API, Manual, CSV Import, Lunch Money |
+| External ID | Single line text | Dedup key — QB transaction ID or Stripe charge ID. Unique. |
+| Stripe Payout ID | Single line text | Links Stripe fees to the QB bank-deposit row that paid them out |
 | Notes | Long text | |
 
 Why amortize at the row level: a single $1,200 annual Airtable charge in March would otherwise spike March's expense total by $1,200 instead of showing $100/mo across the year. Amortized totals give an honest run-rate; Amount totals give true cash flow. We'll surface both in the dashboard.
@@ -180,17 +182,11 @@ Populated by Make.com on the 1st of each month for the prior month.
 
 ## 4. Make.com scenarios
 
-### Scenario 5 — Plaid → Expenses (NEW)
+### Scenario 5 — QuickBooks → Expenses (NEW, primary expense source)
 
-> **Caveat on Plaid:** Make.com has **no native Plaid connector** as of this writing. The realistic paths are:
->
-> 1. **HTTP module + Plaid API** — fully custom; requires creating a Plaid app, completing their dev onboarding (2–5 day approval), exchanging public tokens for access tokens, and storing tokens in a Make Data Store. Highest control, most setup effort.
-> 2. **QuickBooks Online or Xero connector** (native in Make) — if you already use either, both auto-categorize from bank feeds and Make can pull categorized transactions cleanly. Strongly recommended if you have an accountant or are open to setting one up; this is the lowest-friction path.
-> 3. **Bridge service like Method Financial or Finicity** — adds cost but simpler than raw Plaid.
->
-> **Recommendation:** start with QuickBooks (Path 2) if you have or are willing to add it. Otherwise fall back to monthly CSV import from Capital One — manual but reliable, and we can revisit Plaid in Phase 3 once the schema is proven.
+**Why QuickBooks (decided):** Make.com has no native Plaid connector. QuickBooks Online has a native Make connector and pulls categorized transactions from your bank feeds. If QuickBooks proves clunky in practice, the fallback is **Lunch Money** (lower-cost, has a clean API, requires HTTP module integration in Make — slightly more setup but very stable).
 
-Assuming **QuickBooks** as the source:
+**Bank-feed limitation we're working around:** bank deposits from Stripe arrive net of fees, refunds, and chargebacks. The bank line "Stripe payout: $4,732.18" tells you nothing about gross revenue, fee breakdown, or which event the money came from. That's why Scenario 5b below pulls directly from Stripe.
 
 **Trigger:** Schedule, daily at 02:00 PT
 **Modules:**
@@ -207,6 +203,46 @@ Assuming **QuickBooks** as the source:
      - `External ID` ← txn.Id (for dedup)
    - **Route B (exists):** `airtable:updateRecord` if amount/category changed
 5. `airtable:searchRecords` (Subscriptions) — fuzzy match Vendor name → if hit, link record
+
+### Scenario 5b — Stripe → Expenses + Event reconciliation (NEW, critical)
+
+**Why this is needed separately:** the bank feed shows net Stripe payouts, but doesn't give you per-charge fees, refunds, or which event a charge belongs to. We need the *gross + fee* breakdown for each charge to:
+1. Calculate true gross revenue per event (already partially handled — TT pushes ticket price, but Stripe fees aren't itemized there).
+2. Track Stripe processing fees as their own expense category for the P&L.
+3. Reconcile bank payouts against Stripe charges (so we know "this $4,732.18 deposit on May 3 came from these 47 charges across these 5 events").
+
+**Trigger:** Schedule, daily at 03:00 PT (after Scenario 5 has run, so QB rows already exist for the bank-side payouts)
+
+**Modules:**
+1. `stripe:listCharges` — charges where `created > scenario_last_run`, status=succeeded
+2. `iterator` — loop over charges
+3. `setVariables`:
+   - `gross` = charge.amount / 100
+   - `fee` = charge.balance_transaction.fee / 100
+   - `net` = gross − fee
+   - `tt_event_id` = charge.metadata.event_id (if TT passes it through; otherwise null)
+4. `airtable:searchRecords` (Events) — find Event by `TT Event ID` if metadata present, else by recent date proximity
+5. `airtable:searchRecords` (Expenses) — dedup by `External ID = charge.id`
+6. `router` →
+   - **Route A (new charge):** `airtable:createRecord` (Expenses) for the **Stripe fee only**:
+     - `Date` ← charge.created
+     - `Vendor` ← "Stripe"
+     - `Amount` ← `fee`
+     - `Category` ← "Banking" (sub-category: Stripe Fees)
+     - `Frequency` ← "One-time"
+     - `Linked Event` ← matched Event
+     - `External ID` ← charge.id
+     - `Source` ← "Stripe API"
+     - `Notes` ← "Fee on $${gross} charge"
+   - **Route B (refund or dispute):** create a separate Expenses row with negative impact, link to original event
+7. `airtable:updateRecord` (Events) — increment `Stripe Fees` cached field on the matched event
+
+**Stripe payout reconciliation (sub-flow):**
+- Daily, also pull `stripe:listPayouts`. For each payout, store the payout ID + amount + arrival date in a Make Data Store keyed by `payout_id`.
+- When QuickBooks Scenario 5 sees a deposit matching a Stripe payout amount + date, link the QB Expenses row to all the Stripe charges in that payout via a `Stripe Payout ID` field. This gives full traceability from bank deposit → individual ticket purchases.
+
+**Required setup on Stripe side:**
+- TicketTailor → Stripe checkout: confirm that TT passes `event_id` (or equivalent) into Stripe charge metadata. If it doesn't, add a Make scenario step that writes back metadata to the charge after TT webhook fires. Without this, event attribution falls back to date-proximity matching, which is fragile.
 
 ### Scenario 6 — Monthly KPI Rollup (NEW)
 
@@ -291,10 +327,12 @@ Single Interface with these pages:
 6. **Deliverable:** you can answer "what's our minimum monthly expenditure?" by viewing Subscriptions.
 
 ### Phase 2 — Automation (Weeks 2–3)
-7. Build Make Scenario 5 (QuickBooks → Expenses) **OR** establish monthly CSV import workflow.
-8. Build Make Scenario 6 (Monthly KPI Rollup) — Return Rate first, others added incrementally.
-9. Run the rollup retroactively for the last 6 months by manually triggering with overridden date variables.
-10. **Deliverable:** every 1st of the month, Monthly Financials and KPI Snapshots auto-populate.
+7. Build Make Scenario 5 (QuickBooks → Expenses).
+8. Build Make Scenario 5b (Stripe → Expenses + Event reconciliation) — must run *after* Scenario 5 daily so payouts are matchable.
+9. Verify Stripe metadata flow: confirm TicketTailor passes event ID into Stripe charge metadata; if not, add a TT-webhook → Stripe metadata-update step.
+10. Build Make Scenario 6 (Monthly KPI Rollup) — Return Rate first, others added incrementally.
+11. Run the rollup retroactively for the last 6 months by manually triggering with overridden date variables.
+12. **Deliverable:** every 1st of the month, Monthly Financials and KPI Snapshots auto-populate; daily, Expenses reconciles bank deposits to Stripe charges to events.
 
 ### Phase 3 — Visibility (Week 4)
 11. Build the Airtable Interface "Financial Command Center" with 5 pages above.
@@ -340,7 +378,7 @@ Sum and rank. Anything scoring ≥15 of 20 goes on the "do next" list. Below 10 
 
 Things that need a call before we build:
 
-1. **Expense source confirmation.** You picked Plaid; the practical implementation is QuickBooks/Xero. Do you currently use either? If not, are you open to onboarding QuickBooks, or should we default to monthly Capital One CSV imports for Phase 1 and revisit Plaid later?
+1. ~~**Expense source confirmation.**~~ **DECIDED:** QuickBooks Online primary, Stripe API for per-charge fees and event attribution. Lunch Money is the fallback if QuickBooks proves clunky.
 2. **MRR definition.** Is MRR (a) just active series enrollments amortized monthly, (b) a trailing-3-month average of all event revenue, or (c) something else? The dashboard line item depends on this.
 3. **Cash reserve target.** The dashboard "are we safe?" indicator needs a target. Common rule: 3× monthly Subscription Floor + Salaries. Acceptable?
 4. **Survey tool.** Tally (free, simple) or Typeform (paid, prettier)? Phase 2 question, but flag now.
