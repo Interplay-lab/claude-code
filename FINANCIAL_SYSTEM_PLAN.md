@@ -14,6 +14,8 @@
 | **PayPal** | **Exclusive** payment method for venue payouts | Native Make connector — outbound expense tracking |
 | **Venmo** | Occasional venue payouts and rare participant payments | **No public API for personal Venmo.** Monthly CSV export only — flagged as a tracking liability; goal is to eliminate or migrate to PayPal/Stripe |
 | **TicketTailor** | Ticket sales / event creation (existing) | Webhooks → Airtable (existing) |
+| **ActiveCampaign** | Email + post-event communication | Native Make connector; hosts post-event survey email |
+| **Tally** | Post-event NPS form | Webhook → Make → Surveys table |
 | **Airtable** | System of record for everything in this plan | — |
 | **Make.com** | All automation | — |
 
@@ -123,7 +125,8 @@ Populated by Make.com on the 1st of each month for the prior month.
 | Total Expenses (Amortized) | Currency | SUM Expenses.Monthly Amortized |
 | Subscription Floor | Currency | SUM Subscriptions.Monthly Cost (Active only) |
 | Net Profit | Formula | `{Adjusted Gross}-{Total Payouts}-{Total Expenses (Amortized)}` |
-| MRR | Currency | Sum of active series enrollments × monthly value |
+| Recurring MRR | Currency | Σ (active series enrollments × monthly value). Conservative — what we can count on. |
+| Run Rate (3-mo avg) | Currency | Trailing 3-month total revenue ÷ 3. Reflects the whole business. |
 | Cash Reserve End | Currency | Manual or pulled from Plaid balance |
 | Owner Withdrawal | Currency | Manual |
 | Notes | Long text | |
@@ -374,10 +377,15 @@ SWITCH({Venue.Charge Type},
 
 **Idempotency:** before creating, search for existing row with same `Month`. Update if exists.
 
-### Scenario 7 — Post-Event Survey Trigger (NEW, Phase 2)
+### Scenario 7 — Post-Event Survey via ActiveCampaign + Tally (Phase 2)
 
-**Trigger:** Schedule, daily at 09:00 PT
-**Logic:** Find Events where `Event Date = TODAY() − 1` (yesterday). For each, pull Attendance rows with `Attended=true` and email. Send each attendee a Tally/Typeform survey link with `?event_id=...&email=...` prefilled. Form responses webhook into Surveys table.
+**Decided architecture:** AC sends the email (consolidates with the existing post-event communication automation); Tally hosts the form (better suited for NPS + comments than AC's native form builder).
+
+**Flow:**
+1. **Airtable automation** on Events: when `Event Date = TODAY() − 1`, push the event's attendees into an ActiveCampaign list `Post-Event Survey — {Event Name}` via Make.
+2. **ActiveCampaign automation** (already exists for post-event emails) sends the survey email. The CTA links to a Tally form with merge tags: `https://tally.so/r/XYZ?event_id=%EVENT_ID%&email=%EMAIL%`
+3. **Tally webhook → Make → Airtable.** When a response comes in, Make creates a Surveys row keyed by `event_id` + `email`. NPS bucket auto-computed.
+4. **AC tag fallback (v0):** if Tally setup is delayed, ship a click-tracked email — 11 rating links (0–10), AC tags the contact with their score, Make pulls the tag into Surveys. Crude but lets us collect scores immediately.
 
 ### 4.4 Category mapping table (in Make Data Store)
 
@@ -492,12 +500,12 @@ Sum and rank. Anything scoring ≥15 of 20 goes on the "do next" list. Below 10 
 ## 8. Open decisions / pending items
 
 1. ~~Expense source.~~ **DECIDED:** QuickBooks + Stripe API + PayPal API + Venmo CSV. Lunch Money fallback if QB clunks.
-2. **MRR definition.** (a) active series enrollments amortized monthly, (b) trailing-3-month average of all event revenue, (c) something else?
-3. **Cash reserve target.** Default proposal: 3× monthly Subscription Floor + Salaries. Acceptable?
-4. **Survey tool.** Tally (free) or Typeform (paid)?
-5. **Series-counting for Return Rate.** Confirm only the first session of a multi-session series counts toward the denominator.
-6. **Venue billable-hours convention.** Does "billable hours" include setup/teardown by default? Default proposal: yes, 30 min each side, but per-venue overridable via the `Includes Setup/Teardown` checkbox.
-7. **Hybrid pricing tiebreaker.** When a venue uses "greater of X% or $Y minimum", confirm the formula matches your contracts. Several venues we've seen do "greater of [hourly × hours] OR [% of gross]" — different from a flat minimum. We'll review each venue's contract during Phase 1 step 2.
+2. ~~MRR definition.~~ **DECIDED:** Hybrid — track *both* Recurring MRR (active series enrollments amortized) and Run Rate (trailing 3-mo avg). Recurring MRR drives the safety indicator; Run Rate drives growth charts.
+3. ~~Cash reserve target.~~ **DECIDED:** 3× monthly Subscription Floor + Salaries.
+4. ~~Survey tool.~~ **DECIDED:** ActiveCampaign sends the email (uses existing post-event automation); Tally hosts the form. Confirmed TicketTailor has no built-in survey tool. v0 fallback: AC click-tracking only if Tally setup is delayed.
+5. ~~Series-counting for Return Rate.~~ **DECIDED (Option A):** each event counts as one attendance regardless of session count. A series enrollment counts once (at the first session). One-off events always count. Implemented via `Counts For Return Rate` checkbox on Events — checked for one-offs and session 1 of any series, unchecked for sessions 2–N.
+6. **Venue billable-hours convention.** Does "billable hours" include setup/teardown by default? Default proposal: yes, 30 min each side, per-venue overridable via the `Includes Setup/Teardown` checkbox.
+7. **Hybrid pricing tiebreaker.** When a venue uses "greater of X% or $Y minimum", confirm the formula matches your contracts. We'll review each venue's contract during Phase 1 step 2.
 8. **Venmo migration goal.** Set a target date by which all venues currently paid via Venmo migrate to PayPal? This is the only way the books stay clean long-term.
 9. **Event status field.** Confirm the existing Events table has a `Status` field with a `Complete` value (or what we should use as the trigger for venue payout creation). If not, we'll add one.
 
@@ -515,17 +523,17 @@ These are still open from the original setup and block parts of this plan:
 
 ## 10. Next concrete step
 
-Tech stack is locked: QuickBooks + Stripe + PayPal + Venmo (CSV) + Capital One. To start Phase 1 I need:
+**Locked:** tech stack, MRR (hybrid), cash reserve target, survey tool (AC + Tally), series-counting rule (Option A).
 
-**Required answers** (§8 questions 2, 3, 5, 6, 8, 9 — the questions that block table design or formulas):
-- MRR definition
-- Cash reserve target (or accept 3× floor+salaries)
-- Series-counting rule for Return Rate (or accept "first session only")
-- Setup/teardown convention for venue billable hours (or accept 30 min each side)
-- Venmo migration target date (or "no target — handle CSV ingest indefinitely")
-- Confirm Events.Status field exists with a Complete value, or grant permission to add one
+**Still needed before Phase 1 build:**
 
-**Required data** (so Phase 1 step 2 isn't a guessing game):
-- For each venue we use: name, region, charge type (per-hour / % / flat / hybrid), exact rates, payment method (PayPal/Venmo), and contact email/handle. A short Google Doc or CSV is fine.
+*Decisions* (§8 questions 6, 8, 9):
+- Setup/teardown convention for venue billable hours — accept default of 30 min each side?
+- Venmo migration target date, or "indefinite"?
+- Confirm `Events.Status` field exists with a `Complete` value, or permission to add one
 
-Once those are in, I'll create the seven new tables (Subscriptions, Expenses, Venues, Venue Payouts, Monthly Financials, KPI Snapshots, Surveys), wire the auto-payout automation, seed Subscriptions and Venues, and move to Phase 2.
+*Data*:
+- Venue master list: for each venue, name, region, charge type (per-hour / % / flat / hybrid), exact rates, minimums, payment method (PayPal/Venmo), and PayPal email or Venmo handle. A short Google Doc or CSV is fine.
+- Subscription master list: every recurring tool/service with vendor, frequency, amount, and renewal date.
+
+Once those land, I'll create the seven new tables (Subscriptions, Expenses, Venues, Venue Payouts, Monthly Financials, KPI Snapshots, Surveys), wire the auto-payout automation, seed Subscriptions and Venues, and move to Phase 2.
