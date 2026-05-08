@@ -76,8 +76,7 @@ the buyer doesn't have to type it. Action item:
 | Final Code | singleLineText | Sanitized + deduped by Make. THIS is the voucher code. |
 | TT Voucher ID | singleLineText | `vo_…`, set by Make after voucher create |
 | Phone | phoneNumber | Optional |
-| Payout Method | singleSelect: Gusto.com / PayPal | |
-| Payout Identifier | singleLineText | PayPal email, Venmo handle, etc. |
+| PayPal Email | singleLineText | Where commission payments are sent. |
 | Signed Up At | date | Form submission date |
 | How They'll Promote | multilineText | Form question |
 | Notes | multilineText | Internal only |
@@ -135,8 +134,7 @@ On the `Affiliates` table, create a new **form view** named `Affiliate Signup`:
    - Phone (optional)
    - Preferred Code (required) — help text: *"Pick a short word, ideally your first name (e.g. JANE). 3–20 letters/numbers, no spaces. We'll add a number if it's taken."*
    - How They'll Promote (optional) — help text: *"Where will you mostly share? (Instagram, podcast, in-person workshops, etc.)"*
-   - Payout Method (required)
-   - Payout Identifier (required) — help text: *"PayPal email, Venmo handle, Zelle phone, or address for check."*
+   - PayPal Email (required) — help text: *"Where we'll send your commission payments via PayPal."*
 
 2. **Hidden fields (set by automation, not the affiliate):**
    - Status — default: `Active`
@@ -306,7 +304,7 @@ payouts, salaries, or any other base content.
 Your existing monthly bookkeeper email script ([`Facilitator Payouts`, `Pay Periods`, `Profit Share Payouts`]) should be extended to include:
 
 - Query `Affiliate Commissions` where `Status = Approved` AND `Eligible Date <= today`.
-- Add a section to the email titled "Affiliate Commissions" with: Affiliate name, Payout Method, Payout Identifier, Commission Amount, Memo (`{Program} referral — {Buyer Email}`).
+- Add a section to the email titled "Affiliate Commissions" with: Affiliate name, PayPal Email, Commission Amount, Memo (`{Program} referral — {Buyer Email}`).
 - After send: update those rows to `Status = Sent to Bookkeeper`, `Date Sent = today`.
 
 ---
@@ -372,7 +370,7 @@ How affiliates interact with the system without seeing any of it:
 | Sign up | Public Airtable form view URL | Only the form fields they're filling in |
 | Receive code + links | Welcome email (Scenario A) | Their own code, 3 links, commission rates |
 | Track performance | Monthly stats email (Scenario G) | Their own stats only — scoped by `Affiliate` link |
-| Get paid | Out-of-band (PayPal, Venmo, etc.) | Nothing internal — just payment confirmation |
+| Get paid | Out-of-band via PayPal | Nothing internal — just payment confirmation |
 
 Forms in Airtable are submit-only; the submitter cannot see the table, other rows, or
 any field that isn't on the form. This is the safe primitive that powers self-service
