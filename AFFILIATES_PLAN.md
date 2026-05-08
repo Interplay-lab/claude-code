@@ -187,7 +187,7 @@ Build these in the existing Make.com workspace. Each is laid out as: **trigger �
    - All 3 tracking links (read from the formula fields or rebuild in the email).
    - One-paragraph "how to share" guide.
    - Commission rate table.
-   - Link to a self-serve dashboard (an Airtable Interface page filtered to their email — see §5).
+   - A note that they'll get monthly performance stats by email (no portal — see Scenario G).
 
 6. **(Optional) Create ActiveCampaign contact + tag.** Tag them `affiliate` so they get any ongoing affiliate-only newsletters.
 
@@ -255,6 +255,52 @@ Build these in the existing Make.com workspace. Each is laid out as: **trigger �
 2. If `Status = Paid`: set `Status = Reversed` and create a clawback note. Manual decision on whether to claw back.
 3. If `Status` is anything else: set `Status = Reversed`.
 
+### Scenario G — Monthly Affiliate Stats Email
+
+**Why this exists:** affiliates need visibility into their performance, but the Airtable
+base contains highly sensitive financial data (facilitator payouts, salaries, profit
+shares, vendor info). Affiliates must NEVER be given access to the base. This scenario
+gives each affiliate a personal monthly digest by email so they never need a portal.
+
+**Trigger:** Make.com schedule — 1st of each month, ~9am.
+
+**Modules:**
+
+1. **List active affiliates.** Airtable — Search Records on `Affiliates` where `Status = Active`.
+
+2. **For each affiliate, in an Iterator:**
+
+   a. **Count last-month intros tagged to them.** Airtable — Search Records on `Attendance`
+      where `Affiliate` link contains this affiliate AND `Registration Date` is within last calendar month. Count rows.
+
+   b. **Count last-month training signups tagged to them.** Airtable — Search Records on
+      `Series Rosters` where `Affiliate` link contains this affiliate AND `Registration Date` is within last calendar month. Count rows + sum `Amount Paid`.
+
+   c. **Sum last-month commissions earned.** Airtable — Search Records on `Affiliate Commissions`
+      where `Affiliate` link contains this affiliate AND created within last calendar month
+      AND `Status != Reversed`. Sum `Commission Amount`.
+
+   d. **Sum lifetime totals** (same searches without the date filter): lifetime intros,
+      lifetime training signups, lifetime commission earned, lifetime commission paid
+      (filter `Status = Paid`), outstanding (lifetime earned − lifetime paid).
+
+   e. **Send personalized email** to `{{affiliate.Email}}`. Template:
+      - Subject: "Your Interplay affiliate stats — {{Month Year}}"
+      - Body sections:
+        - Last month: X intros referred, Y training signups, $Z commission earned.
+        - Lifetime: A intros, B trainings, $C earned, $D paid, $E outstanding.
+        - Their code + 3 tracking links (re-included so they always have them handy).
+        - Reminder of commission rates.
+        - "Reply to this email if anything looks wrong."
+
+3. **Error handling:** if any single affiliate's email fails, log the error to a separate
+   `Affiliate Email Errors` table or send an alert to Violet — do NOT stop the loop.
+
+**Privacy guarantee:** this email contains ONLY the affiliate's own data. The Airtable
+queries in steps 2a–2d are scoped by the `Affiliate` link, so cross-contamination is
+impossible. The affiliate cannot see other affiliates' performance, your facilitator
+payouts, salaries, or any other base content.
+
 ### Scenario F — Bookkeeper Email (extend your existing one)
 
 Your existing monthly bookkeeper email script ([`Facilitator Payouts`, `Pay Periods`, `Profit Share Payouts`]) should be extended to include:
@@ -292,22 +338,55 @@ The system uses **first-touch attribution** by `Registration Date`. If a buyer i
 
 ## 5. Reporting
 
-Build these views/interfaces in Airtable:
+### Internal (RI team only — full Airtable access)
 
 - **Affiliate Leaderboard** (Affiliates table): grid sorted by total Commission Amount (rollup from linked Affiliate Commissions, status not Reversed). Columns: Name, # intros, # trainings, lifetime $.
 - **Pending Commissions** (Affiliate Commissions): filtered to `Status = Pending`. Used by Violet to spot-check before they auto-approve.
-- **Per-Affiliate Dashboard** (Airtable Interface): page filtered to the logged-in user's email — they see their own intros, trainings, and earnings. Share the URL in the welcome email.
 - **Monthly affiliate spend** (KPI Snapshots): consider adding a column `Affiliate Commissions Paid` to the existing monthly rollup so it shows up on the financial dashboard.
+
+### Affiliate-facing (no base access)
+
+- **Welcome email** (Scenario A): code + tracking links + commission rates.
+- **Monthly stats email** (Scenario G): personal performance digest, sent automatically.
+- **Ad-hoc lookup**: if an affiliate emails asking "what are my numbers?", run the same Search-Records queries from Scenario G manually for just that one affiliate, or trigger Scenario G on-demand for them.
+
+If you ever decide to give affiliates a real-time portal, build it as a **separate
+front-end** (Softr, Glide, custom page) that hits Airtable's API with a row-scoped key.
+Do NOT share the base or an Interface page — the base contains payouts, salaries, and
+vendor info that must stay internal.
+
+## 5b. Privacy & access boundaries
+
+This is a hard rule: **affiliates never get Airtable access**. The base contains:
+- Facilitator payouts and rates
+- Salaries (Peter, Violet)
+- Profit share percentages
+- Vendor and venue contact info / banking details
+- Other affiliates' performance and earnings
+- Internal expense and subscription data
+
+How affiliates interact with the system without seeing any of it:
+
+| Touchpoint | Mechanism | What they can see |
+|---|---|---|
+| Sign up | Public Airtable form view URL | Only the form fields they're filling in |
+| Receive code + links | Welcome email (Scenario A) | Their own code, 3 links, commission rates |
+| Track performance | Monthly stats email (Scenario G) | Their own stats only — scoped by `Affiliate` link |
+| Get paid | Out-of-band (PayPal, Venmo, etc.) | Nothing internal — just payment confirmation |
+
+Forms in Airtable are submit-only; the submitter cannot see the table, other rows, or
+any field that isn't on the form. This is the safe primitive that powers self-service
+signup without any access leak.
 
 ---
 
 ## 6. What's NOT yet built (open TODOs)
 
 1. Verify TT URL parameter for voucher pre-fill (see §1) and update the formula fields if needed.
-2. Build Scenarios A–F in Make.com.
+2. Build Scenarios A–G in Make.com.
 3. Create the form view on Affiliates (manual UI step).
 4. Extend the existing bookkeeper email script to include affiliate commissions.
-5. Build the Per-Affiliate Dashboard interface page.
+5. (Deferred) If/when you want a real-time affiliate portal, build it as a separate front-end app — never share the Airtable base or an Interface page (contains sensitive financial data).
 6. Decide refund clawback policy (claw back paid commissions on refunds, or eat the cost).
 7. Decide if intro events not yet listed (future events) should also count — currently the formulas hard-code 3 series IDs. When new intro series launch, update the formulas to add new link fields, OR refactor to a generic `?ref=CODE` link that points to a landing page that routes to the right event.
 
