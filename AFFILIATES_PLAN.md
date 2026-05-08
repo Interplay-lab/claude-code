@@ -76,7 +76,7 @@ the buyer doesn't have to type it. Action item:
 | Final Code | singleLineText | Sanitized + deduped by Make. THIS is the voucher code. |
 | TT Voucher ID | singleLineText | `vo_…`, set by Make after voucher create |
 | Phone | phoneNumber | Optional |
-| Payout Method | singleSelect: PayPal / Venmo / Zelle / Check / Interplay Bucks / Other | |
+| Payout Method | singleSelect: Gusto.com / PayPal | |
 | Payout Identifier | singleLineText | PayPal email, Venmo handle, etc. |
 | Signed Up At | date | Form submission date |
 | How They'll Promote | multilineText | Form question |
