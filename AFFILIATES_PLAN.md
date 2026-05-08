@@ -79,6 +79,7 @@ the buyer doesn't have to type it. Action item:
 | PayPal Email | singleLineText | Where commission payments are sent. |
 | Signed Up At | date | Form submission date |
 | How They'll Promote | multilineText | Form question |
+| Custom Commission Rate | percent | Optional VIP override. If set, replaces ALL program-default rates for this affiliate. Leave blank for standard affiliates. Stored as decimal (0.16 = 16%). |
 | Notes | multilineText | Internal only |
 | Berkeley/Oakland/Boulder Intro Link | formula | `?ref=` + `Final Code`. Update if TT supports voucher pre-fill (see §1). |
 | Attendance (reverse) | linked record | Auto-populated from Attendance.Affiliate |
@@ -110,10 +111,10 @@ the buyer doesn't have to type it. Action item:
 
 | Program | Rate |
 |---|---|
-| Relational Dojo | 16% |
-| Accelerated Evolution | 12% |
+| Relational Dojo | 10% |
+| Accelerated Evolution | 10% |
 | Coach Training | 6% |
-| Facilitator Training | 15% |
+| Facilitator Training | 10% |
 
 Rates are stored on each commission row at creation time, so future rate changes do not rewrite history.
 
@@ -223,11 +224,17 @@ Build these in the existing Make.com workspace. Each is laid out as: **trigger �
 
 3. **Match → set Affiliate on Series Rosters.** Airtable — Update Record. `Affiliate` = matched affiliate.
 
-4. **Compute commission rate.** Switch module on `{{this.Series Name}}`:
-   - Relational Dojo → 0.16
-   - Accelerated Evolution → 0.12
-   - Coach Training → 0.06
-   - Facilitator Training → 0.15
+4. **Compute commission rate.** Two-step lookup:
+
+   a. **Check for affiliate-level override.** If `affiliate.Custom Commission Rate` is set (not blank), use that value. This handles VIP partners with negotiated rates.
+
+   b. **Otherwise use program default.** Switch module on `{{this.Series Name}}`:
+      - Relational Dojo → 0.10
+      - Accelerated Evolution → 0.10
+      - Coach Training → 0.06
+      - Facilitator Training → 0.10
+
+   Make.com formula equivalent: `rate = ifempty(affiliate.custom_rate; program_default)`.
 
 5. **Create Affiliate Commissions row.** Airtable — Create Record.
    - `Commission Label` = `{Affiliate Name} — {Buyer Email} — {Program} — {today}`.
@@ -321,7 +328,8 @@ Your existing monthly bookkeeper email script ([`Facilitator Payouts`, `Pay Peri
 ### Changing commission rates
 
 - New rate applies to commissions **created after the change**. Existing Pending/Approved rows keep their original rate (snapshot in `Commission Rate`).
-- Update the Switch in Scenario C and the rate table in this doc.
+- For a **program-wide** change: update the Switch in Scenario C and the rate table in this doc.
+- For a **single-affiliate** custom rate (VIP partner, founder's friend, etc.): set `Custom Commission Rate` on that Affiliate row. No Make.com or doc changes needed. The override applies to ALL programs equally for that affiliate.
 
 ### Pausing or revoking an affiliate
 
