@@ -39,25 +39,42 @@ the program-specific rate.
 
 Store: `st_79934` (Relational Interplay store).
 
-### Voucher structure
+### Architecture: Referral Tag + Discount Code per affiliate
 
-One voucher per affiliate. Created automatically by Make.com on Affiliate creation.
+Each affiliate gets two things in Ticket Tailor, both keyed to their `Final Code`:
 
-- **Code**: the affiliate's `Final Code` (e.g. `JANE`, `JANE2` if `JANE` is taken).
-- **Discount**: 0% (tracking only — no discount to buyer).
-- **Applies to**: all 3 intro event series above. Does NOT apply to paid trainings — vouchers should be scoped to the intro series only. (If trainings later move to TT, do not extend these vouchers; create separate logic.)
-- **Limit**: unlimited uses, no expiry (or set a far-future expiry).
-- **Voucher ID**: written back to `Affiliates.TT Voucher ID` after creation.
+1. **TT Referral Tag** (one per affiliate, scoped to "All events"). Generates a unique tracking URL the affiliate shares. Sales through the URL show up in TT's "Referral sales summary" and on the order's `referral_tag` field via API. **Must be created manually in the TT admin** — there is no API endpoint for creating referral tags.
 
-### TT URL parameter for code pre-fill (verify)
+2. **TT Discount Code** (one per affiliate, 5% off, scoped to intro ticket types). Catches in-person word-of-mouth referrals where the buyer types the code at checkout. Created automatically via the TT API (`POST /v1/discounts`). Recorded on the order, used by Make.com to attribute orders.
 
-The tracking links in Airtable currently use `?ref=CODE`. Ticket Tailor may also
-support `?voucher=CODE` or `?vc=CODE` to **auto-apply the voucher at checkout** so
-the buyer doesn't have to type it. Action item:
+Both signals (`referral_tag` and discount code) are checked by Make.com on every new order. Either match attributes the sale to the affiliate.
 
-1. Manually test on a TT event: try `…/2172390?voucher=TESTCODE` and `…/2172390?vc=TESTCODE`.
-2. Whichever pre-fills the discount box, update the formula in `Affiliates.Berkeley/Oakland/Boulder Intro Link` to use that param.
-3. If neither works, leave `?ref=` as-is and rely on the buyer typing the code.
+### Referral Tag setup (manual, one-time per affiliate)
+
+In the TT admin: **Promote → Buttons and links → Event link → Edit Link Settings → Choose "All events" → Enter referral tag (= affiliate's `Final Code`) → Update → copy generated URL → paste into the Affiliates row**.
+
+Notes:
+- One tag covers all events (current and future) — no need to redo when a new intro series launches.
+- Tags are case-sensitive and must be unique across the account.
+- This step takes ~30 seconds per affiliate. Make.com Scenario A pings whoever administers TT (Violet) when a new affiliate signs up so they can create the tag.
+
+### Discount Code setup (automated)
+
+Created by Make.com Scenario A via `POST /v1/discounts` with body:
+
+```json
+{
+  "name": "Affiliate: {Final Code}",
+  "code": "{Final Code}",
+  "type": "percentage",
+  "price_percent": 5,
+  "ticket_types": ["tt_6254433", "tt_6254434", "tt_6254551", "tt_6254552", "tt_6298570", "tt_6298571"]
+}
+```
+
+The `ticket_types` array scopes the code to intro events only — the 6 ticket types across the 3 intro series. **When a new intro event/ticket type is added, this list must be updated** (or a sub-scenario added that auto-extends all affiliate codes when a new intro ticket type is created).
+
+Returned `discount.id` is written to `Affiliates.TT Voucher ID` (despite the field name — historical; rename if cleaning up).
 
 ---
 
@@ -168,47 +185,74 @@ Build these in the existing Make.com workspace. Each is laid out as: **trigger �
    - If empty after stripping, fall back to a sanitized version of `Name` (e.g. "Jane Smith" → "JANESMITH").
    - Truncate to 20 chars.
 
-2. **Dedup against existing TT vouchers.** Ticket Tailor — Search Vouchers by code. If found, append `2`, then `3`, etc. until unique. (Keep an iterator with a max of 10 attempts; if all taken, fall back to `CODE-{random 4 digits}`.)
+2. **Dedup against existing TT discount codes.** Ticket Tailor — `makeAPICall` `GET /v1/discounts?code=XXX`. If found, append `2`, then `3`, etc. until unique. (Max 10 attempts; if all taken, fall back to `CODE-{random 4 digits}`.)
 
-3. **Create voucher in TT.** Ticket Tailor — Create Voucher.
-   - Code: the deduped code.
-   - Discount type: percentage, value 0.
-   - Applies to event series: `es_2172390`, `es_2172433`, `es_2188106`.
-   - Max uses: unlimited (or 9999).
-   - Expiry: leave blank or set to e.g. 2030-01-01.
+3. **Create discount code in TT.** Ticket Tailor — `makeAPICall` `POST /v1/discounts` with body:
+   ```json
+   {
+     "name": "Affiliate: {{final_code}}",
+     "code": "{{final_code}}",
+     "type": "percentage",
+     "price_percent": 5,
+     "ticket_types": ["tt_6254433","tt_6254434","tt_6254551","tt_6254552","tt_6298570","tt_6298571"]
+   }
+   ```
 
 4. **Update Affiliate row.** Airtable — Update Record.
    - `Final Code` = the deduped code.
-   - `TT Voucher ID` = voucher ID returned by TT.
+   - `TT Voucher ID` = `discount.id` returned by TT.
 
-5. **Send welcome email.** Use existing email tool (ActiveCampaign, Gmail, or whatever you use for transactional). Template includes:
-   - Their `Final Code`.
-   - All 3 tracking links (read from the formula fields or rebuild in the email).
+5. **Notify TT admin (Violet) to create the referral tag.** Send email or Slack message to Violet:
+   > New affiliate **{Name}** signed up. Their code is **{Final Code}**.
+   > Please create a TT referral tag:
+   > 1. Open `app.tickettailor.com` → Promote → Buttons and links → Event link → Edit Link Settings.
+   > 2. Choose "All events" and set referral tag = `{Final Code}`.
+   > 3. Click Update, copy the URL, and paste it into [this Airtable row]({Airtable record URL}) in a new field called "Tracking URL".
+   > 4. Check the "Tag Created" box on that row.
+
+6. **Send affiliate welcome email** (sent immediately, doesn't wait for the manual tag step). Template includes:
+   - Their `Final Code` and the 5% buyer discount it gives.
+   - "Your tracking link is being generated and you'll receive it within 24 hours."
    - One-paragraph "how to share" guide.
    - Commission rate table.
-   - A note that they'll get monthly performance stats by email (no portal — see Scenario G).
+   - A note about the monthly stats email (Scenario G).
 
-6. **(Optional) Create ActiveCampaign contact + tag.** Tag them `affiliate` so they get any ongoing affiliate-only newsletters.
+7. **(Optional) Create ActiveCampaign contact + tag.** Tag them `affiliate` so they get any ongoing affiliate-only newsletters.
 
-**Error handling:** if TT voucher creation fails, set `Status = Pending` and `Notes` = error message; alert Violet by email.
+**Error handling:** if TT discount creation fails, set `Status = Pending` and `Notes` = error message; alert Violet by email.
 
-### Scenario B — Tag Intro Signup with Affiliate
+### Scenario A2 — Send Affiliate Their Tracking Link (after Violet creates the tag)
 
-**Trigger:** Airtable — Watch Records on `Attendance` table.
-- Watch on: created.
-- Trigger condition: `Affiliate is empty` AND linked Event has `Format = Intro` (or any of the 3 intro series via the linked `TT Event ID`).
+**Trigger:** Airtable — Watch Records on `Affiliates` table.
+- Watch on: updated.
+- Trigger condition: `Tag Created` = true AND `Tracking URL` is not empty AND `Welcome Email Sent` is empty.
 
 **Modules:**
 
-1. **Look up the source TT order.** You presumably already have a Make scenario that creates Attendance rows from TT orders. Extend it to also fetch:
-   - Voucher code used (TT order has a `voucher` field).
-   - Source / referer (TT order may include UTM source if you've turned that on).
+1. Send the affiliate a follow-up email: *"Your tracking link is ready: {Tracking URL}. Share it anywhere to get credit for referrals."*
+2. Update the row: set `Welcome Email Sent` = today.
 
-2. **Match voucher code → Affiliate.** Airtable — Search Records on `Affiliates` where `Final Code = {{order.voucher.code}}`.
+(Two new fields on Affiliates needed for this: `Tracking URL` (url) and `Tag Created` (checkbox), and `Welcome Email Sent` (date). Add these when you're ready to build Scenario A2 — not required for v1.)
 
-3. **(Fallback) Match `?ref=` → Affiliate.** If no voucher match, parse `ref=` from the order's source/referrer URL and search `Affiliates.Final Code` again.
+### Scenario B — Tag Intro Signup with Affiliate
 
-4. **Update Attendance row.** If a match is found: set `Affiliate` link to that affiliate. Otherwise: leave blank (no attribution).
+**Recommended approach: extend the existing `Ticket Tailor → Airtable` scenario** (id 4983848) rather than create a separate one. That scenario already runs on `order.created` and creates Attendance rows. Add three modules at the end of its flow.
+
+**Modules to add:**
+
+1. **Determine the affiliate code from the order.** A `Set Variable` module that picks the first non-empty value:
+   ```
+   affiliate_code = ifempty(order.referral_tag; order.discounts[].code; "")
+   ```
+   - `order.referral_tag` is populated when the buyer used the affiliate's tracking URL (auto, no buyer action).
+   - `order.discounts[].code` is populated when the buyer typed the affiliate's discount code.
+   - If both are empty, this isn't an affiliate-tagged order — exit.
+
+2. **Look up Affiliate by code.** Airtable — Search Records on `Affiliates` where `Final Code = {{affiliate_code}}` AND `Status = Active`.
+
+3. **Update Attendance row.** Airtable — Update Record.
+   - Set the `Affiliate` link to the matched affiliate's record ID.
+   - If no match: leave blank (the code wasn't a known affiliate code — could be a non-affiliate discount, log to Notes for debugging).
 
 ### Scenario C — Email-Match Attribution + Commission Creation
 
