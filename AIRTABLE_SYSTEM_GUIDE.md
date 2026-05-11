@@ -1,7 +1,7 @@
 # Relational Interplay — Airtable System Guide
 
 **Base:** Relational Interplay Events & Operations (`appONwRwGnRvhPgHc`)  
-**Last updated:** 2026-05-11
+**Last updated:** 2026-05-11 (revised — post-automation-sprint)
 
 This document describes every table in the Airtable base, what it tracks, and the explicit path by which each field is populated — whether that is an automated pipeline, an Airtable formula, a manual data entry step, or a planned but not-yet-built automation.
 
@@ -29,16 +29,27 @@ Supporting systems: Zoom (online events), Google Calendar (scheduling), Toggl (t
 | Toggl → Airtable Time Entries | 4985926 | ✅ Active | Polling every 30 min | Syncs Toggl entries to Time Entries table, links to People and Pay Periods |
 | Zoom → AC Attendance | 4983210 | ✅ Active | Zoom meeting.ended webhook | Tags AC contacts as Attended after Zoom meeting ends |
 | Airtable Attendance → ActiveCampaign | 4996835 | ⚠️ Needs re-save | Airtable Attendance trigger | Upserts AC contact, subscribes to list, applies all tags |
-| Attendance No-Show → ActiveCampaign | 5008218 | ⚠️ Needs re-save | Daily schedule | Finds past-event non-attendees, tags as No-Show in AC |
-| TT New Order → Zoom Registration | 4998598 | ⚠️ Needs re-save | TT new orders polling | Registers each ticket buyer in Zoom using attendee details from TT |
-| Ticket Tailor → Airtable | 4983848 | ❌ Broken/inactive | TT new orders | Creates Attendance records (superseded — needs rebuild or fix) |
-| Ticket Tailor → ActiveCampaign | 4798719 | ❌ Broken/inactive | TT new orders | Old combined scenario; superseded by 4996835 and 4998598 |
+| Attendance No-Show → ActiveCampaign | 5030965 | ✅ Active | Daily schedule | Finds past-event non-attendees, tags with No-Show + format/hub/training tags in AC |
+| TT New Order → Zoom Registration | 5032912 | ✅ Active | Polling every 15 min | Polls TT completed orders, registers each ticket holder in the linked Zoom meeting via datastore lookup |
+| F1: Event Financials → Airtable | 5032559 | ✅ Active | Daily schedule | Pulls TT order totals per event; writes Gross Revenue, Refunds, and calculated Stripe Fees (2.9% of gross) to Events |
+| F2: Zoom Attendance Count → Airtable | 5026038 | ✅ Active | Daily schedule | Pulls Zoom participant reports for online events held yesterday; writes Total Attended count to Events |
+| F3: Venue Cost → Airtable Events | 5033099 | ✅ Active | Daily schedule | For Held in-person events with blank Venue Cost, looks up highest-priority matching Venue Pricing Rule and writes computed cost to Events |
+| F4: TT Check-ins → Airtable Attended | 5030860 | ✅ Active | Daily schedule | For in-person events held the prior day, pulls TT check-in data and marks Attendance.Attended checkbox true/false per email match |
+| Ticket Tailor → Airtable | 4983848 | ❌ Broken/inactive | TT new orders | Creates Attendance records (needs rebuild) |
+| Ticket Tailor → ActiveCampaign | 4798719 | ❌ Broken/inactive | TT new orders | Old combined scenario; superseded; Google Sheets connection deleted |
 | Affiliate Signup → TT Discount Code | 5008276 | 🚧 Draft | Airtable Affiliates trigger | Creates TT voucher, sends welcome email (partially built) |
 | QuickBooks → Expenses | 4998282 | 🚧 Partial | Daily schedule | Imports QB transactions to Expenses table (running but has errors) |
 | Zoom → Google Drive Archive | 4956915 | ❌ Inactive | Zoom recording webhook | Archives Zoom recordings to Google Drive (0 executions) |
 
+**Make.com connections in use:**
+- Airtable connection 8741307 — API key, no expiration
+- ActiveCampaign connection 7276134 — API key, no expiration
+- Zoom connection 8699938 — OAuth, connect@letsinterplay.com (reauthorized 2026-05-11); `report:read:admin` scope required for F2
+- Stripe OAuth connection 7832881 — OAuth, expires 2027-03-30; NOT used with http:ActionSendData (incompatible)
+- Datastore 97722 — TT event ID → Zoom meeting ID mapping (used by 5032912)
+
 **Scenarios not yet built (planned):**
-- Scenario 5b: Stripe fees → Expenses
+- Scenario 5b: Stripe fees → Expenses (note: F1 already writes calculated fees to Events; 5b would be a separate per-transaction log to Expenses)
 - Scenario 5c: PayPal outflows → Expenses + reconcile Venue Payouts
 - Scenario 5d: Auto-create Venue Payout 3 days after event
 - Scenario 6: Monthly Financials + KPI Snapshots rollup (runs 1st of month)
@@ -93,14 +104,14 @@ Tags are applied by Make.com scenarios — primarily by "Airtable Attendance →
 | Lead Facilitator (Person) | Linked → People | **Auto** — 4984070 maps TT tag to People record ID |
 | Co-Facilitator (Person) | Linked → People | **Auto** — 4984070 maps TT tag to People record ID |
 | Status | Single select (Scheduled / Held / Cancelled) | **Manual** — default Scheduled; flip to Held after event occurs |
-| Gross Revenue | Currency | **Manual** — enter from Ticket Tailor sales report after event |
-| Refunds | Currency | **Manual** — enter from Stripe/TT refund records after event |
-| Venue Cost | Currency | **Manual** — in-person events only; enter actual rental cost |
-| Stripe Fees | Currency | **Manual** — from Stripe dashboard (~2.9% + $0.30/transaction); or estimate |
+| Gross Revenue | Currency | **Auto** — Make.com F1 (5032559) sums TT order totals for Held events; runs daily |
+| Refunds | Currency | **Auto** — Make.com F1 (5032559) sums TT refund amounts for Held events; runs daily |
+| Venue Cost | Currency | **Auto** — Make.com F3 (5033099) looks up highest-priority matching Venue Pricing Rule and writes computed cost; runs daily for Held in-person events with blank Venue Cost. Override manually if actual cost differs. |
+| Stripe Fees | Currency | **Auto** — Make.com F1 (5032559) calculates as 2.9% of Gross Revenue; runs daily. Note: this is an estimate; actual per-transaction fees vary by ~$0.30/txn. |
 | Net Revenue | Formula | **Auto** — Gross − Refunds − Venue Cost − Stripe Fees |
 | Adjusted Gross | Formula | **Auto** — Gross − Refunds (basis for Violet's profit share) |
 | Total Registrations | Number | **Manual** — enter from TT sales report (automation planned) |
-| Total Attended | Number | **Manual** — enter after event from Zoom/TT check-in report |
+| Total Attended | Number | **Auto (online)** — Make.com F2 (5026038) pulls Zoom participant report the day after the event and writes the count. **Auto (in-person)** — Make.com F4 (5030860) counts TT check-ins the day after the event. Manual fallback if neither runs. |
 | Attendance Rate (%) | Formula | **Auto** — Total Attended ÷ Total Registrations |
 | Duration Hours | Number | **Manual** — required for venue payout rule matching |
 | Venue (Linked) | Linked → Venues | **Manual** — link to Venues table for in-person events |
@@ -112,7 +123,7 @@ Tags are applied by Make.com scenarios — primarily by "Airtable Attendance →
 | Venue Payouts | Linked → Venue Payouts | **Auto** — inverse link |
 | Series Rosters | Linked → Series Rosters | **Auto** — inverse link |
 
-> **Financial fields not yet automated:** Gross Revenue, Venue Cost, Stripe Fees, Refunds, Total Registrations, and Total Attended all require manual entry currently. The plan is to pull Gross Revenue and Total Registrations from TT automatically, and populate Total Attended from the Zoom attendance report.
+> **Automation status:** Gross Revenue, Refunds, Stripe Fees, Venue Cost, and Total Attended are now populated automatically by F1–F4. Total Registrations is the last major financial field still requiring manual entry.
 
 ---
 
@@ -129,7 +140,7 @@ Tags are applied by Make.com scenarios — primarily by "Airtable Attendance →
 | Ticket Type | Single select | **Auto** — 4983848 from TT ticket type name |
 | Amount Paid | Currency | **Auto** — 4983848 from TT `listed_price` |
 | Registration Date | Date | **Auto** — 4983848 from TT order `created_at` |
-| Attended | Checkbox | **Manual** — check after event using Zoom report (online) or TT check-in app (in-person). Automation planned. |
+| Attended | Checkbox | **Auto (in-person)** — Make.com F4 (5030860) matches by email against TT check-in data the day after the event and sets true/false. **Manual (online)** — online event attended status is still set manually; Zoom → AC tagging runs via 4983210 but does not write back to Airtable Attendance rows. |
 | First Event Ever | Checkbox | **Manual** — check only if this is the person's first ever RI event. Critical for return rate. |
 | Return Visit | Checkbox | **Manual** — check if they've attended before |
 | Home Market | Single select | **Manual/Convention** — set from event location for in-person; for online, set based on where they live |
@@ -146,7 +157,7 @@ Tags are applied by Make.com scenarios — primarily by "Airtable Attendance →
 
 > **Trigger for AC pipeline:** When a new row appears in Attendance, Make.com scenario 4996835 fires within 15 minutes and upserts the contact in ActiveCampaign, subscribes to List 3, and applies all relevant tags.
 
-> **Attended automation gap:** The Attended checkbox is currently manual. The plan is to sync Zoom participant reports after each meeting to auto-check this field. This would then feed Scenario 4996835's STATUS: Attended tag logic automatically.
+> **Attended checkbox — in-person now automated:** F4 (5030860) handles in-person events automatically. Online event attended checkboxes remain manual; the Zoom webhook (4983210) tags contacts in AC but does not write back to Airtable individual Attendance rows.
 
 ---
 
@@ -549,20 +560,32 @@ Tags are applied by Make.com scenarios — primarily by "Airtable Attendance →
 Ticket Tailor (event created)
     └─→ Make 4984070 ─→ Airtable Events (create)
                      ─→ Google Calendar (create)
-                     ─→ Make Data Store (Zoom ID mapping)
+                     ─→ Make Datastore 97722 (TT event ID → Zoom meeting ID)
 
-Ticket Tailor (new order)
-    └─→ Make 4998598 ─→ Zoom (register attendee)
+Ticket Tailor (new order, polled every 15 min)
+    └─→ Make 5032912 ─→ Zoom (register each ticket holder)
     └─→ Make 4983848 ─→ Airtable Attendance (create row)  [needs fix]
 
 Airtable Attendance (new row)
-    └─→ Make 4996835 ─→ ActiveCampaign (upsert contact + tags)
+    └─→ Make 4996835 ─→ ActiveCampaign (upsert contact + tags)  [needs re-save]
 
 Zoom (meeting ended)
     └─→ Make 4983210 ─→ ActiveCampaign (STATUS: Attended tag)
 
-Airtable Attendance (daily batch, past events, not attended)
-    └─→ Make 5008218 ─→ ActiveCampaign (STATUS: No-Show tag)
+Daily batch — event financials
+    └─→ Make 5032559 (F1) ─→ Airtable Events (Gross Revenue, Refunds, Stripe Fees)
+
+Daily batch — Zoom attendance count
+    └─→ Make 5026038 (F2) ─→ Airtable Events (Total Attended, online events)
+
+Daily batch — in-person attendance
+    └─→ Make 5030860 (F4) ─→ Airtable Attendance (Attended checkbox, in-person events)
+
+Daily batch — venue cost
+    └─→ Make 5033099 (F3) ─→ Airtable Events (Venue Cost, in-person, via Pricing Rules)
+
+Daily batch — no-shows
+    └─→ Make 5030965 ─→ ActiveCampaign (STATUS: No-Show + format/hub/training tags)
 
 Toggl (time entries)
     └─→ Make 4985926 ─→ Airtable Time Entries (upsert every 30 min)
@@ -588,16 +611,18 @@ Monthly (1st of month) [NOT YET BUILT]
 | Gap | Status | Notes |
 |---|---|---|
 | Scenario 4983848 (TT → Airtable Attendance) | ❌ Broken | Needs rebuild to reliably create Attendance rows from TT orders |
-| Scenario 4996835 / 5008218 / 4998598 | ⚠️ Invalid | Need trigger re-save in Make UI to re-validate schema |
-| Attended checkbox automation | 🚧 Planned | Zoom report → auto-check Attended after each meeting |
+| Scenario 4996835 (Airtable Attendance → AC) | ⚠️ Needs re-save | Trigger schema needs re-validation in Make UI |
+| Attended checkbox — online events | ⚠️ Partial | F4 handles in-person automatically; online event Attendance.Attended still requires manual entry. Zoom webhook (4983210) tags AC but does not write back to Airtable rows. |
 | Facilitator Payout row auto-creation | 🚧 Planned | Auto-create when event Status → Held |
-| Total Registrations / Total Attended auto-fill | 🚧 Planned | Pull from TT and Zoom respectively |
-| Scenario 5b (Stripe fees) | 🚧 Planned | Not built |
+| Total Registrations auto-fill | 🚧 Planned | Last major Events field still manual; pull from TT order count |
+| Stripe Fees precision | ⚠️ Known limitation | F1 uses flat 2.9% estimate; actual fees include per-transaction $0.30 surcharge. Acceptable for now. |
+| Scenario 5b (Stripe fees → Expenses) | 🚧 Planned | F1 writes fees to Events; 5b would log individual transactions to Expenses table |
 | Scenario 5c (PayPal reconciliation) | 🚧 Planned | Not built |
-| Scenario 5d (Venue Payout auto-creation) | 🚧 Planned | Not built |
+| Scenario 5d (Venue Payout auto-creation) | 🚧 Planned | Not built; F3 now computes the amount but doesn't create the Venue Payout row |
 | Scenario 6 (Monthly Financials + KPIs) | 🚧 Planned | Not built |
 | Monthly Payout Setup automation | 🚧 Planned | Airtable automation to create Pay Periods etc. on 1st of month |
 | Affiliate Scenario A (full flow) | 🚧 Draft | Partially built (5008276), has errors |
 | NPS tracking | 🚧 Phase 2 | Survey integration not yet defined |
 | Facilitator tags in TT | ⚠️ Pending | 10 tags (mike-lead, mike-co, sena-lead, sena-co, leah-lead, leah-co, tori-lead, tori-co, carley-lead, carley-co) must be created in TT for 4984070 to auto-assign facilitators |
-| Zoom registration required | ⚠️ Pending | Must be enabled on each Zoom meeting for personalized join links to work |
+| Zoom registration required | ⚠️ Pending | Must be enabled on each Zoom meeting for 5032912 to issue personalized join links |
+| F2 Zoom scope (report:read:admin) | ⚠️ Monitor | Zoom connection 8699938 was reauthorized 2026-05-11; if F2 returns 403 on first online-event run, the OAuth scope wasn't granted and connection needs reauth with that scope explicitly |
