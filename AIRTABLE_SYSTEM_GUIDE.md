@@ -12,7 +12,7 @@ This document describes every table in the Airtable base, what it tracks, and th
 Data flows through four main layers:
 
 1. **Ticket Tailor** — source of truth for events, ticket sales, and registrations
-2. **Airtable** — operational hub for events, attendance, people, finances, and reporting
+2. **Airtable** — operational hub for events, attendance, staff, finances, and reporting
 3. **Make.com** — automation middleware connecting all systems
 4. **ActiveCampaign** — CRM and email marketing; receives contact and tag data from Airtable
 
@@ -26,7 +26,7 @@ Supporting systems: Zoom (online events), Google Calendar (scheduling), Toggl (t
 |---|---|---|---|---|
 | TT New Event → Airtable | 4984070 | ✅ Active | TT EVENT.CREATED webhook | Creates Airtable Events record, Google Calendar event, stores Zoom ID in data store |
 | TT Event Updated → Airtable | 4984169 | ✅ Active | TT EVENT.UPDATED webhook | Updates matching Airtable Events record when TT event changes |
-| Toggl → Airtable Time Entries | 4985926 | ✅ Active | Polling every 30 min | Syncs Toggl entries to Time Entries table, links to People and Pay Periods |
+| Toggl → Airtable Time Entries | 4985926 | ✅ Active | Polling every 30 min | Syncs Toggl entries to Time Entries table, links to Staff and Pay Periods |
 | Zoom → AC Attendance | 4983210 | ✅ Active | Zoom meeting.ended webhook | Tags AC contacts as Attended after Zoom meeting ends |
 | Airtable Attendance → ActiveCampaign | 4996835 | ⚠️ Needs re-save | Airtable Attendance trigger | Upserts AC contact, subscribes to list, applies all tags |
 | Attendance No-Show → ActiveCampaign | 5030965 | ✅ Active | Daily schedule | Finds past-event non-attendees, tags with No-Show + format/hub/training tags in AC |
@@ -101,8 +101,8 @@ Tags are applied by Make.com scenarios — primarily by "Airtable Attendance →
 | Lead Facilitator | Text | **Auto** — 4984070 reads TT facilitator tags (`mike-lead`, `sena-lead`, etc.) |
 | Co-Facilitator | Text | **Auto** — 4984070 reads TT co-facilitator tags |
 | Facilitator Role | Single select (Solo / Co-Hosted) | **Auto** — 4984070 infers from presence of co-facilitator tag |
-| Lead Facilitator (Person) | Linked → People | **Auto** — 4984070 maps TT tag to People record ID |
-| Co-Facilitator (Person) | Linked → People | **Auto** — 4984070 maps TT tag to People record ID |
+| Lead Facilitator (Person) | Linked → Staff | **Auto** — 4984070 maps TT tag to Staff record ID |
+| Co-Facilitator (Person) | Linked → Staff | **Auto** — 4984070 maps TT tag to Staff record ID |
 | Status | Single select (Scheduled / Held / Cancelled) | **Manual** — default Scheduled; flip to Held after event occurs |
 | Gross Revenue | Currency | **Auto** — Make.com F1 (5032559) sums TT order totals for Held events; runs daily |
 | Refunds | Currency | **Auto** — Make.com F1 (5032559) sums TT refund amounts for Held events; runs daily |
@@ -184,7 +184,7 @@ Tags are applied by Make.com scenarios — primarily by "Airtable Attendance →
 
 ---
 
-### 4. People (`tblG0Wg94I837qbiT`)
+### 4. Staff (`tblG0Wg94I837qbiT`)
 
 **Purpose:** Canonical HR record for all RI team members — employees (W2) and contractors. Controls payout eligibility, IB accrual, pay cadence, and Toggl attribution.
 
@@ -206,7 +206,7 @@ Tags are applied by Make.com scenarios — primarily by "Airtable Attendance →
 | Toggl User ID | Text | **Manual** — numeric ID from Toggl admin; required for time entry attribution |
 | All linked tables | Links | **Auto** — inverse links from Payouts, Events, Time Entries, etc. |
 
-> **Current People records:** Peter Benjamin, Violet Starkey, Mike Anthony, Sena Koleva, Leah Diamond, Tori King, Carley Corrado, Johanna (bookkeeper), plus satellite coordinators.
+> **Current Staff records:** Peter Benjamin, Violet Starkey, Mike Anthony, Sena Koleva, Leah Diamond, Tori King, Carley Corrado, Johanna (bookkeeper), plus satellite coordinators.
 
 ---
 
@@ -227,7 +227,7 @@ Tags are applied by Make.com scenarios — primarily by "Airtable Attendance →
 |---|---|---|
 | Facilitator Name | Text | **Manual** (or auto from linked Person) |
 | Event | Linked → Events | **Manual** — link to the event |
-| Person | Linked → People | **Manual** — link to People record |
+| Person | Linked → Staff | **Manual** — link to Staff record |
 | Role | Single select (Solo / Co-Hosted) | **Manual** |
 | Event Type | Single select | **Manual** — must match Events.Event Type |
 | Gross Revenue | Currency | **Manual** — copy from Events.Gross Revenue |
@@ -242,7 +242,7 @@ Tags are applied by Make.com scenarios — primarily by "Airtable Attendance →
 | Date Paid | Date | **Manual** |
 | Date Sent | Date | **Manual** — date bookkeeper email included this row |
 
-> **Not yet automated:** Row creation is currently manual. The plan is to auto-create Facilitator Payout rows when a new Events record is created (or Status flips to Held), pre-filling Role, Event Type, and linking to People from the Lead/Co-Facilitator linked fields.
+> **Not yet automated:** Row creation is currently manual. The plan is to auto-create Facilitator Payout rows when a new Events record is created (or Status flips to Held), pre-filling Role, Event Type, and linking to Staff from the Lead/Co-Facilitator linked fields.
 
 ---
 
@@ -253,7 +253,7 @@ Tags are applied by Make.com scenarios — primarily by "Airtable Attendance →
 | Field | Type | How it arrives |
 |---|---|---|
 | Period Label | Text | **Auto** — monthly script: "Violet Starkey — 2026-04" |
-| Person | Linked → People | **Auto** — monthly script, filtered to Eligible for Profit Share = true |
+| Person | Linked → Staff | **Auto** — monthly script, filtered to Eligible for Profit Share = true |
 | Period Start / End | Date | **Auto** — monthly script |
 | Adjusted Gross Total | Currency | **Auto** — monthly script sums Events.Adjusted Gross for prior month |
 | Profit Share % | Percent | **Auto** — copied from Person.Profit Share % at creation (preserves history) |
@@ -273,7 +273,7 @@ Tags are applied by Make.com scenarios — primarily by "Airtable Attendance →
 | Field | Type | How it arrives |
 |---|---|---|
 | Period Label | Text | **Auto** — monthly script |
-| Person | Linked → People | **Auto** — monthly script, filtered to Pay Cadence = Salary (Logged Only) |
+| Person | Linked → Staff | **Auto** — monthly script, filtered to Pay Cadence = Salary (Logged Only) |
 | Period Start / End | Date | **Auto** — monthly script |
 | Amount | Currency | **Auto** — copied from Person.Monthly Salary |
 | Paid via | Single select | Always "Capital One auto-transfer" |
@@ -289,7 +289,7 @@ Tags are applied by Make.com scenarios — primarily by "Airtable Attendance →
 | Field | Type | How it arrives |
 |---|---|---|
 | Period Label | Text | **Auto** — monthly script: "Kayla Rodriguez — 2026-04" |
-| Person | Linked → People | **Auto** — monthly script, filtered to Pay Cadence = Monthly, Status = Active |
+| Person | Linked → Staff | **Auto** — monthly script, filtered to Pay Cadence = Monthly, Status = Active |
 | Period Start / End | Date | **Auto** — monthly script (covers prior month) |
 | Hourly Rate | Currency | **Auto** — copied from Person.Hourly Rate at creation |
 | IB Rate | Number | **Auto** — copied from Person.Interplay Bucks Rate at creation |
@@ -310,7 +310,7 @@ Tags are applied by Make.com scenarios — primarily by "Airtable Attendance →
 | Field | Type | How it arrives |
 |---|---|---|
 | Entry Label | Text | **Auto** — monthly script for earnings; **Manual** for redemptions |
-| Person | Linked → People | **Auto/Manual** |
+| Person | Linked → Staff | **Auto/Manual** |
 | Date | Date | **Auto/Manual** |
 | Amount (IB) | Number | **Auto** (positive, from Pay Period IB Earned) / **Manual** (negative, redemptions) |
 | Type | Single select (Earned Hourly / Redeemed TT Gift Card / etc.) | **Auto/Manual** |
@@ -326,7 +326,7 @@ Tags are applied by Make.com scenarios — primarily by "Airtable Attendance →
 | Field | Type | How it arrives |
 |---|---|---|
 | Toggl Entry ID | Text | **Auto** — Make.com 4985926 (upsert key) |
-| Person | Linked → People | **Auto** — matched on Toggl User ID in People table |
+| Person | Linked → Staff | **Auto** — matched on Toggl User ID in Staff table |
 | Description | Text | **Auto** — from Toggl entry description |
 | Project | Text | **Auto** — from Toggl project name |
 | Tags | Text | **Auto** — from Toggl tags |
@@ -355,7 +355,7 @@ Tags are applied by Make.com scenarios — primarily by "Airtable Attendance →
 | Amount | Currency | **Manual** — per-cycle charge |
 | Renewal Date | Date | **Manual** |
 | Status | Single select (Active / Cancelled) | **Manual** |
-| Owner | Linked → People | **Manual** |
+| Owner | Linked → Staff | **Manual** |
 | Auto-Pay From | Single select | **Manual** |
 | Monthly Cost | Formula | **Auto** — amortizes to monthly (annual ÷ 12, etc.) |
 
