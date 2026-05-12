@@ -305,17 +305,27 @@ Tags are applied by Make.com scenarios — primarily by "Airtable Attendance →
 
 ### 9. Interplay Bucks Ledger (`tbl6sR2OhP6PpGDn0`)
 
-**Purpose:** Running credit/debit ledger of Interplay Bucks for each team member. Each person's current IB balance = sum of all their rows.
+**Purpose:** Narrow-scope ledger for IB events that do **not** come from Toggl hourly accrual. Holds redemptions (negative), one-off manual earnings (positive), and adjustments (signed). Hourly earnings are no longer written here — they live in Time Entries and roll up directly to Staff. There is no monthly auto-write to this table.
 
 | Field | Type | How it arrives |
 |---|---|---|
-| Entry Label | Text | **Auto** — monthly script for earnings; **Manual** for redemptions |
-| Person | Linked → People | **Auto/Manual** |
-| Date | Date | **Auto/Manual** |
-| Amount (IB) | Number | **Auto** (positive, from Pay Period IB Earned) / **Manual** (negative, redemptions) |
-| Type | Single select (Earned Hourly / Redeemed TT Gift Card / etc.) | **Auto/Manual** |
-| Source Pay Period | Linked → Pay Periods | **Auto** — linked by monthly script for earnings |
+| Entry Label | Text | **Manual** — short human-readable description |
+| Person | Linked → Staff | **Manual** |
+| Date | Date | **Manual** |
+| Amount (IB) | Number | **Manual** — negative for redemptions, positive for manual earnings/adjustments |
+| Type | Single select | **Manual** — `Earned (Hourly)` (legacy/unused), `Earned (Manual)`, `Redeemed - Gift Card (TicketTailor)`, `Redeemed - Manual / Other`, `Adjustment` |
+| Source Pay Period | Linked → Pay Periods | **Legacy** — no longer populated; safe to ignore |
 | TicketTailor Reference | Text | **Manual** — gift card code or order ID for redemptions |
+
+> **Balance computation (lives on Staff, not here):**
+> - `IB from Time Entries` (rollup, Time Entries → IB Earned, `SUM(values)`) — all-time hourly accrual
+> - `IB from Ledger Credits` (rollup, Ledger → Amount (IB), conditioned on Type ∈ {Earned (Manual), Adjustment}, `SUM(values)`)
+> - `IB Redeemed` (rollup, Ledger → Amount (IB), conditioned on Type ∈ {Redeemed - Gift Card (TicketTailor), Redeemed - Manual / Other}, `SUM(values)` — already negative)
+> - `IB Earned This Period` (rollup, Pay Periods → IB Earned, conditioned on Status = Draft, `SUM(values)`)
+> - `Total IB Earned` (formula): `{IB from Time Entries} + {IB from Ledger Credits}`
+> - `Current IB Balance` (formula): `{Total IB Earned} + {IB Redeemed}`
+>
+> Balance updates the moment Toggl syncs (every 30 min) or a ledger row is added. No scripts, no monthly job.
 
 ---
 
