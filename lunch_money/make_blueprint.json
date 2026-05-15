@@ -1,0 +1,2948 @@
+{
+  "flow": [
+    {
+      "id": 1,
+      "module": "app#lunchmoney-65tvqd:CreateaCategoryGroup",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Income",
+        "is_income": true
+      },
+      "metadata": {
+        "designer": {
+          "x": 0,
+          "y": 0
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "category_ids",
+            "type": "array",
+            "label": "Category IDs"
+          },
+          {
+            "name": "new_categories",
+            "type": "array",
+            "label": "New Categories"
+          }
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "module": "app#lunchmoney-65tvqd:CreateaCategoryGroup",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "People"
+      },
+      "metadata": {
+        "designer": {
+          "x": 300,
+          "y": 0
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "category_ids",
+            "type": "array",
+            "label": "Category IDs"
+          },
+          {
+            "name": "new_categories",
+            "type": "array",
+            "label": "New Categories"
+          }
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "module": "app#lunchmoney-65tvqd:CreateaCategoryGroup",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Software & Tools"
+      },
+      "metadata": {
+        "designer": {
+          "x": 600,
+          "y": 0
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "category_ids",
+            "type": "array",
+            "label": "Category IDs"
+          },
+          {
+            "name": "new_categories",
+            "type": "array",
+            "label": "New Categories"
+          }
+        ]
+      }
+    },
+    {
+      "id": 4,
+      "module": "app#lunchmoney-65tvqd:CreateaCategoryGroup",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Event & Program Delivery"
+      },
+      "metadata": {
+        "designer": {
+          "x": 900,
+          "y": 0
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "category_ids",
+            "type": "array",
+            "label": "Category IDs"
+          },
+          {
+            "name": "new_categories",
+            "type": "array",
+            "label": "New Categories"
+          }
+        ]
+      }
+    },
+    {
+      "id": 5,
+      "module": "app#lunchmoney-65tvqd:CreateaCategoryGroup",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Travel & Meals"
+      },
+      "metadata": {
+        "designer": {
+          "x": 1200,
+          "y": 0
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "category_ids",
+            "type": "array",
+            "label": "Category IDs"
+          },
+          {
+            "name": "new_categories",
+            "type": "array",
+            "label": "New Categories"
+          }
+        ]
+      }
+    },
+    {
+      "id": 6,
+      "module": "app#lunchmoney-65tvqd:CreateaCategoryGroup",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Professional Services"
+      },
+      "metadata": {
+        "designer": {
+          "x": 1500,
+          "y": 0
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "category_ids",
+            "type": "array",
+            "label": "Category IDs"
+          },
+          {
+            "name": "new_categories",
+            "type": "array",
+            "label": "New Categories"
+          }
+        ]
+      }
+    },
+    {
+      "id": 7,
+      "module": "app#lunchmoney-65tvqd:CreateaCategoryGroup",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Payment Processing"
+      },
+      "metadata": {
+        "designer": {
+          "x": 1800,
+          "y": 0
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "category_ids",
+            "type": "array",
+            "label": "Category IDs"
+          },
+          {
+            "name": "new_categories",
+            "type": "array",
+            "label": "New Categories"
+          }
+        ]
+      }
+    },
+    {
+      "id": 8,
+      "module": "app#lunchmoney-65tvqd:CreateaCategoryGroup",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Other Operating"
+      },
+      "metadata": {
+        "designer": {
+          "x": 2100,
+          "y": 0
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "category_ids",
+            "type": "array",
+            "label": "Category IDs"
+          },
+          {
+            "name": "new_categories",
+            "type": "array",
+            "label": "New Categories"
+          }
+        ]
+      }
+    },
+    {
+      "id": 9,
+      "module": "app#lunchmoney-65tvqd:CreateaCategoryGroup",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Transfers",
+        "exclude_from_totals": true,
+        "exclude_from_budget": true
+      },
+      "metadata": {
+        "designer": {
+          "x": 2400,
+          "y": 0
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "category_ids",
+            "type": "array",
+            "label": "Category IDs"
+          },
+          {
+            "name": "new_categories",
+            "type": "array",
+            "label": "New Categories"
+          }
+        ]
+      }
+    },
+    {
+      "id": 10,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Program Revenue",
+        "group_id": "{{1.id}}",
+        "is_income": true
+      },
+      "metadata": {
+        "designer": {
+          "x": 0,
+          "y": 200
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    },
+    {
+      "id": 11,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Event Revenue",
+        "group_id": "{{1.id}}",
+        "is_income": true
+      },
+      "metadata": {
+        "designer": {
+          "x": 0,
+          "y": 400
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    },
+    {
+      "id": 12,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Coaching Revenue",
+        "group_id": "{{1.id}}",
+        "is_income": true
+      },
+      "metadata": {
+        "designer": {
+          "x": 0,
+          "y": 600
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    },
+    {
+      "id": 13,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Membership / Recurring Revenue",
+        "group_id": "{{1.id}}",
+        "is_income": true
+      },
+      "metadata": {
+        "designer": {
+          "x": 0,
+          "y": 800
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    },
+    {
+      "id": 14,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Other Income",
+        "group_id": "{{1.id}}",
+        "is_income": true
+      },
+      "metadata": {
+        "designer": {
+          "x": 0,
+          "y": 1000
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    },
+    {
+      "id": 15,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Founder Pay \u2013 Peter",
+        "group_id": "{{2.id}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 300,
+          "y": 200
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    },
+    {
+      "id": 16,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Founder Pay \u2013 Violet",
+        "group_id": "{{2.id}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 300,
+          "y": 400
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    },
+    {
+      "id": 17,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Contractor Pay",
+        "group_id": "{{2.id}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 300,
+          "y": 600
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    },
+    {
+      "id": 18,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Facilitator Splits",
+        "group_id": "{{2.id}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 300,
+          "y": 800
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    },
+    {
+      "id": 19,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Honoraria & Guest Pay",
+        "group_id": "{{2.id}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 300,
+          "y": 1000
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    },
+    {
+      "id": 20,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Software & Subscriptions",
+        "group_id": "{{3.id}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 600,
+          "y": 200
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    },
+    {
+      "id": 21,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Venue Rentals",
+        "group_id": "{{4.id}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 900,
+          "y": 200
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    },
+    {
+      "id": 22,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Event Supplies & Materials",
+        "group_id": "{{4.id}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 900,
+          "y": 400
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    },
+    {
+      "id": 23,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Air & Long-Distance Transport",
+        "group_id": "{{5.id}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 1200,
+          "y": 200
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    },
+    {
+      "id": 24,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Ground Transport",
+        "group_id": "{{5.id}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 1200,
+          "y": 400
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    },
+    {
+      "id": 25,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Lodging",
+        "group_id": "{{5.id}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 1200,
+          "y": 600
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    },
+    {
+      "id": 26,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Mileage",
+        "group_id": "{{5.id}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 1200,
+          "y": 800
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    },
+    {
+      "id": 27,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Business Meals",
+        "group_id": "{{5.id}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 1200,
+          "y": 1000
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    },
+    {
+      "id": 28,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Legal",
+        "group_id": "{{6.id}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 1500,
+          "y": 200
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    },
+    {
+      "id": 29,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Accounting",
+        "group_id": "{{6.id}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 1500,
+          "y": 400
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    },
+    {
+      "id": 30,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Insurance",
+        "group_id": "{{6.id}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 1500,
+          "y": 600
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    },
+    {
+      "id": 31,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Banking & Wire Fees",
+        "group_id": "{{6.id}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 1500,
+          "y": 800
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    },
+    {
+      "id": 32,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Stripe Fees",
+        "group_id": "{{7.id}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 1800,
+          "y": 200
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    },
+    {
+      "id": 33,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "PayPal Fees",
+        "group_id": "{{7.id}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 1800,
+          "y": 400
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    },
+    {
+      "id": 34,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Ticket Tailor Fees",
+        "group_id": "{{7.id}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 1800,
+          "y": 600
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    },
+    {
+      "id": 35,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Equipment & Hardware",
+        "group_id": "{{8.id}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 2100,
+          "y": 200
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    },
+    {
+      "id": 36,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "One-Time Software",
+        "group_id": "{{8.id}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 2100,
+          "y": 400
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    },
+    {
+      "id": 37,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Office / Workspace",
+        "group_id": "{{8.id}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 2100,
+          "y": 600
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    },
+    {
+      "id": 38,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Miscellaneous Business",
+        "group_id": "{{8.id}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 2100,
+          "y": 800
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    },
+    {
+      "id": 39,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Inter-Account Transfers",
+        "group_id": "{{9.id}}",
+        "exclude_from_totals": true,
+        "exclude_from_budget": true
+      },
+      "metadata": {
+        "designer": {
+          "x": 2400,
+          "y": 200
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    },
+    {
+      "id": 40,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Owner Draws",
+        "group_id": "{{9.id}}",
+        "exclude_from_totals": true,
+        "exclude_from_budget": true
+      },
+      "metadata": {
+        "designer": {
+          "x": 2400,
+          "y": 400
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    },
+    {
+      "id": 41,
+      "module": "app#lunchmoney-65tvqd:createaCategory",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 8882969
+      },
+      "mapper": {
+        "name": "Personal",
+        "group_id": "{{9.id}}",
+        "exclude_from_totals": true,
+        "exclude_from_budget": true
+      },
+      "metadata": {
+        "designer": {
+          "x": 2400,
+          "y": 600
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "My Lunch Money connection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "label": "Description"
+          },
+          {
+            "name": "is_income",
+            "type": "boolean",
+            "label": "Is Income"
+          },
+          {
+            "name": "exclude_from_budget",
+            "type": "boolean",
+            "label": "Exclude From Budget"
+          },
+          {
+            "name": "exclude_from_totals",
+            "type": "boolean",
+            "label": "Exclude From Totals"
+          },
+          {
+            "name": "archived",
+            "type": "boolean",
+            "label": "Archived"
+          },
+          {
+            "name": "group_id",
+            "type": "uinteger",
+            "label": "Group ID"
+          }
+        ]
+      }
+    }
+  ],
+  "name": "Integration Lunch Money",
+  "metadata": {
+    "instant": false,
+    "version": 1,
+    "designer": {
+      "orphans": []
+    },
+    "scenario": {
+      "dlq": false,
+      "slots": null,
+      "dataloss": false,
+      "maxErrors": 3,
+      "autoCommit": true,
+      "roundtrips": 1,
+      "sequential": true,
+      "confidential": false,
+      "freshVariables": false,
+      "autoCommitTriggerLast": true
+    }
+  },
+  "scheduling": {
+    "type": "indefinitely",
+    "interval": 900
+  },
+  "interface": {
+    "input": [],
+    "output": []
+  }
+}

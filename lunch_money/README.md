@@ -1,10 +1,10 @@
 # Lunch Money setup
 
-One-shot script to scaffold the Interplay category structure in a fresh Lunch Money account.
+Two equivalent paths to scaffold the Interplay category structure in a fresh Lunch Money account. The categories were created on 2026-05-15 via the **Make.com** path (Path B below); the standalone Python script (Path A) is kept as a fallback / reference.
 
-## What it creates
+## What gets created
 
-9 groups, 30 categories — based on `lunch_money_categorization_guide.txt`.
+9 groups, 32 categories — based on `lunch_money_categorization_guide.txt`.
 
 | Group | Categories |
 |---|---|
@@ -20,7 +20,7 @@ One-shot script to scaffold the Interplay category structure in a fresh Lunch Mo
 
 Tags are not pre-created — Lunch Money has no tag creation endpoint. They get created the first time you apply them to a transaction.
 
-## Run
+## Path A: Standalone Python script
 
 Requires Python 3 (macOS ships with it). No `pip install` needed — stdlib only.
 
@@ -29,21 +29,23 @@ export LUNCH_MONEY_API_KEY=your_key_here
 python3 setup_categories.py
 ```
 
-Run it on your Mac, on Lobster, or anywhere with network access to `dev.lunchmoney.app` — it won't run from this Claude sandbox (host blocked).
+The script verifies API access first, then refuses to run if the account already has any categories — re-running on a populated account is a no-op rather than a duplication disaster.
 
-## Safety
+## Path B: Make.com scenario *(used in production)*
 
-The script verifies API access first, then refuses to run if the account already has any categories. So re-running it on a populated account is a no-op rather than a duplication disaster.
+`build_make_blueprint.py` generates a Make scenario blueprint with 41 modules (9 group-creates + 32 category-creates, each referencing its parent group via `{{N.id}}` expressions). The generated blueprint is checked in as `make_blueprint.json`.
 
-If a single API call fails mid-run, the script prints the offending request + response and exits non-zero. Any groups/categories already created up to that point stay — finish the rest by hand in the Lunch Money UI, or delete what was created and re-run.
+The blueprint was loaded into Make scenario **"ONE-OFF: Lunch Money Category Setup"** (id `5072387`, team `1815706`, app `app#lunchmoney-65tvqd`, connection `8882969`), activated, run on-demand, and deactivated after a successful run (41 ops in 3.2 seconds, all SUCCESS).
 
-## After running
+To regenerate the blueprint after editing the category list:
 
-1. Open Lunch Money web → Categories. Confirm the structure looks right.
-2. Manually categorize a handful of real transactions to pressure-test the scheme.
-3. See `lunch_money_categorization_guide.txt` for tag conventions and decision rules.
+```bash
+python3 build_make_blueprint.py    # writes make_blueprint.json
+```
 
-## Notes on the guide vs. this script
+Then update the scenario in Make (UI: "Edit blueprint") or via the Make MCP `scenarios_update` tool.
+
+## Notes on the guide vs. this implementation
 
 - The original guide had a `Payroll Run – Gusto` category under People. Dropped — Gusto lump-sum withdrawals are categorized as `Contractor Pay`. Per-person breakdown lives in Airtable.
 - The original guide had `Business Meals` as its own group. Folded into `Travel & Meals` alongside the four travel categories.
