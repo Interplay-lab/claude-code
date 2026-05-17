@@ -1,7 +1,7 @@
 # Relational Interplay — Airtable System Guide
 
 **Base:** Relational Interplay Events & Operations (`appONwRwGnRvhPgHc`)  
-**Last updated:** 2026-05-11 (revised — post-automation-sprint)
+**Last updated:** 2026-05-17 (added Income table + Venmo as Source; deprecated QB → Expenses scenario)
 
 This document describes every table in the Airtable base, what it tracks, and the explicit path by which each field is populated — whether that is an automated pipeline, an Airtable formula, a manual data entry step, or a planned but not-yet-built automation.
 
@@ -38,7 +38,7 @@ Supporting systems: Zoom (online events), Google Calendar (scheduling), Toggl (t
 | Ticket Tailor → Airtable | 4983848 | ❌ Broken/inactive | TT new orders | Creates Attendance records (needs rebuild) |
 | Ticket Tailor → ActiveCampaign | 4798719 | ❌ Broken/inactive | TT new orders | Old combined scenario; superseded; Google Sheets connection deleted |
 | Affiliate Signup → TT Discount Code | 5008276 | 🚧 Draft | Airtable Affiliates trigger | Creates TT voucher, sends welcome email (partially built) |
-| QuickBooks → Expenses | 4998282 | 🚧 Partial | Daily schedule | Imports QB transactions to Expenses table (running but has errors) |
+| QuickBooks → Expenses | 4998282 | ❌ Deprecated 2026-05-17 | Daily schedule | **Deactivated.** Replaced by Lunch Money pipeline (planned) + Venmo .xls backfill. The 169 QB-sourced rows previously imported were deleted on 2026-05-17 ahead of cutover. |
 | Zoom → Google Drive Archive | 4956915 | ❌ Inactive | Zoom recording webhook | Archives Zoom recordings to Google Drive (0 executions) |
 
 **Make.com connections in use:**
@@ -49,9 +49,11 @@ Supporting systems: Zoom (online events), Google Calendar (scheduling), Toggl (t
 - Datastore 97722 — TT event ID → Zoom meeting ID mapping (used by 5032912)
 
 **Scenarios not yet built (planned):**
-- Scenario 5b: Stripe fees → Expenses (note: F1 already writes calculated fees to Events; 5b would be a separate per-transaction log to Expenses)
+- Scenario 5a: Lunch Money → Expenses (replaces deprecated QB scenario 4998282; primary transactional outflow feed)
+- Scenario 5b: Stripe fees → Expenses (note: F1 already writes calculated fees to Events; 5b would be a separate per-transaction log to Expenses) — extending to also pull non-TT Stripe refunds as contra-income
 - Scenario 5c: PayPal outflows → Expenses + reconcile Venue Payouts
 - Scenario 5d: Auto-create Venue Payout 3 days after event
+- Scenario 5e: Income matching re-runner — when Events table gains new records (e.g., Partiful backfill), re-match `Income.Linked Event` for rows currently `Unmatched`
 - Scenario 6: Monthly Financials + KPI Snapshots rollup (runs 1st of month)
 - Monthly Payout Setup: Creates Pay Periods + Profit Share Payouts + Salary Log rows on 1st of month
 
@@ -365,31 +367,78 @@ Tags are applied by Make.com scenarios — primarily by "Airtable Attendance →
 
 ### 12. Expenses (`tblO7Ux8RvI4l2Eac`)
 
-**Purpose:** Transaction-level outflow ledger. One row per expense. Combines data from QuickBooks, Stripe, and PayPal.
+**Purpose:** Transaction-level outflow ledger. One row per expense. Combines data from Lunch Money, Stripe, PayPal, and Venmo (backfilled).
 
 | Field | Type | How it arrives |
 |---|---|---|
-| Description | Text | **Auto** — Make.com formats as "YYYY-MM-DD — Vendor — Amount" |
+| Description | Text | **Auto** — formatted as "YYYY-MM-DD — Vendor — Amount" |
 | Date | Date | **Auto** — from source system |
 | Vendor | Text | **Auto** — from source system |
 | Amount | Currency | **Auto** — from source system |
-| Category | Single select | **Auto** — from QB category or matched Subscription; flags "Needs Categorization" if no match |
+| Category | Single select (Software / Venue / Marketing / Contractor / Travel / Insurance / Banking / Office / Misc / Event Supplies / Refunds / Owner Draw / Payroll) | **Auto** — from source category or matched Subscription; flags "Needs Categorization" if no match |
 | Frequency | Single select | **Auto** — from matched Subscription.Frequency |
 | Subscription | Linked → Subscriptions | **Auto** — Make.com vendor fuzzy-match |
-| Account | Single select | **Auto** — which account the outflow came from |
-| Source | Single select (QuickBooks / Stripe / PayPal / Manual) | **Auto** — set by the import scenario |
-| External ID | Text | **Auto** — QB transaction ID / Stripe charge ID / PayPal txn ID (dedup key) |
+| Account | Single select (Capital One / Stripe / PayPal / Cash / Venmo / Other) | **Auto** — which account the outflow came from |
+| Source | Single select (Lunch Money / Stripe API / PayPal API / Venmo / Manual / CSV Import / QuickBooks-legacy) | **Auto** — set by the import scenario |
+| External ID | Text | **Auto** — LM transaction ID / Stripe charge ID / PayPal txn ID / Venmo txn ID (dedup key) |
 | Monthly Amortized | Formula | **Auto** — spreads annual/quarterly charges evenly |
 | Needs Categorization | Checkbox | **Auto** — checked when Make.com can't match vendor |
+| Needs Violet Review | Checkbox | **Auto** — default true for all newly-imported rows (Venmo, LM); false for trusted/legacy. Used as the bookkeeper review queue. |
+| Exclude from Financials | Checkbox | **Auto/Manual** — true for bank-transfer rows (Venmo→Capital One sweeps) and duplicates. Dashboard rollups respect this flag. |
+| Event Title (Raw) | Text | **Auto** — title extracted from Venmo/Partiful memo (e.g. via `partiful.com 🎟 for "..."` regex). Audit field; not used for matching. |
 | Linked Event | Linked → Events | **Manual** — for event-specific costs |
 | Receipt | Attachment | **Manual** |
 | Linked Venue Payout | Linked → Venue Payouts | **Auto** — set by Scenario 5c when PayPal outflow matches a Venue Payout |
 
 **Import sources:**
-- **QuickBooks** — Scenario 4998282 runs daily; currently active with some errors
-- **Stripe fees** — Scenario 5b (not yet built)
-- **PayPal venue payouts** — Scenario 5c (not yet built)
+- **Lunch Money** — Scenario 5a (planned) — primary transactional feed across Capital One + Stripe + PayPal
+- **Stripe fees + non-TT refunds** — Scenario 5b (planned) — per-transaction log
+- **PayPal venue payouts** — Scenario 5c (planned)
+- **Venmo** — One-time .xls backfill 2026-05-17 (NEW Venmo + OLD Venmo accounts); ~395 expense rows + 3 transfer rows (Exclude=true). Going forward, Lunch Money should pick up Venmo activity once the LM connection is in place.
 - **Manual** — cash purchases, unusual items
+- **QuickBooks (legacy)** — Scenario 4998282 deprecated 2026-05-17; the 169 QB-imported rows were deleted ahead of the LM cutover.
+
+---
+
+### 12b. Income (`tbl2j3DlyQ2nyMV8q`)
+
+**Purpose:** Transaction-level inflow ledger. One row per payment received. Captures revenue channels that the Events table's `Gross Revenue` field doesn't see — primarily Venmo ticket payments, but also direct (non-Ticket Tailor) Stripe charges, cash, and other channels.
+
+**Important — relationship to Events.Gross Revenue:** Ticket-Tailor revenue (the bulk of ticket income) is still captured at the Events level by F1 (5032559). The Income table is *additive*: it represents channels that bypass TT. Total revenue per event = `Events.Gross Revenue` + sum of linked `Income.Amount`.
+
+| Field | Type | How it arrives |
+|---|---|---|
+| Description | Text | **Auto** — formatted "YYYY-MM-DD — Payer — $Amount" |
+| Date | Date | **Auto** — from source system |
+| Amount | Currency | **Auto** — from source system |
+| Payer | Text | **Auto** — from Venmo Payee field |
+| Memo | Text | **Auto** — raw memo from source |
+| Source | Single select (Venmo / Stripe / PayPal / Cash / Manual / Other) | **Auto** — where the income data was sourced |
+| Account | Single select (Venmo / Stripe / PayPal / Capital One / Cash / Other) | **Auto** — which account received the funds |
+| External ID | Text | **Auto** — dedup key (Venmo txn ID, Stripe charge ID, etc.) |
+| Linked Event | Linked → Events | **Auto** — set by event-matching pass. Usually one event per income row. Empty = unmatched. |
+| Match Confidence | Single select (Exact Title / Memo + Date / Date in Market / Date Only (ambiguous) / Unmatched / Manual) | **Auto** — set by event-matching pass |
+| Match Reason | Text | **Auto** — explanation of the matching signals |
+| Inferred Market | Single select (East Bay / Boulder / Denver / San Francisco / Online / Unknown) | **Auto** — inferred from memo via regex (Oakland/Berkeley → East Bay, etc.) |
+| Needs Violet Review | Checkbox | **Auto** — default true on all new income; bookkeeper review queue |
+| Exclude from Financials | Checkbox | **Auto/Manual** — for duplicates / test charges |
+| Notes | Text | **Manual** |
+
+**Matching algorithm (used by backfill + planned Scenario 5e):**
+1. **Tier A — Exact Title:** if Venmo memo contains `partiful.com 🎟 for "X"`, fuzzy-match `X` to `Events.Event Name` (tokens of length ≥5 minus stopwords like "interplay"/"relational"); payment date must be within 30 days before event date.
+2. **Tier B — Memo + Date:** any 2+ substantial tokens from memo match the event name + date window.
+3. **Tier C — Date in Market:** memo's inferred market matches `Events.Location`, and the event is the nearest upcoming one within the 30-day window. If multiple candidates, picks closest.
+4. **Tier D — Date Only:** if exactly one event in the 30-day window regardless of market.
+5. Otherwise: `Unmatched`.
+
+**Re-runnability:** Since `Events` is still being backfilled (Partiful scraping in progress as of 2026-05-17), most income rows initially land as `Unmatched`. Scenario 5e (planned) should re-run matching whenever a new Events record is created, upgrading `Unmatched` rows to higher confidence tiers.
+
+**Import sources:**
+- **Venmo** — One-time .xls backfill 2026-05-17 — 398 income rows from NEW + OLD Venmo accounts
+- **Stripe direct (non-TT)** — Scenario 5b-extended (planned)
+- **Cash / Manual** — entered by hand for cash door sales, gift contributions, etc.
+
+> **Architecture note:** Originally the system had no Income table — revenue was captured exclusively at the event level via Ticket Tailor → F1. This worked for the Stripe channel only. The Venmo backfill 2026-05-17 surfaced the need for a separate channels ledger; the Income table now covers all non-TT inflow channels.
 
 ---
 
