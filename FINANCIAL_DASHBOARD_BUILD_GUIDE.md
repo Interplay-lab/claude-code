@@ -10,9 +10,11 @@
 - ✅ `Month` formula field added to Expenses, Income, and Events
 - ✅ `Is Current Month` formula field added to Expenses, Income, and Events (auto-rolls each calendar month — used by dashboard "this month" filters)
 - ✅ All Venmo-imported rows flagged `Needs Violet Review = true`
+- ✅ `Dashboard Aggregates` table created (1-row singleton) with `Income This Month` rollup, `Expenses This Month` rollup, and `Net Cash Flow This Month` formula. Every Income and Expense row links to the singleton via a `Cash Flow Aggregate` field. This is how the dashboard does cross-table math.
 - 🟡 Stripe transactions not yet backfilled into Income table. Dashboard is built for cash-basis accounting with Income as the source of truth, so Stripe just needs to be appended as `Source=Stripe` rows later — no dashboard changes required.
 - 🟡 Lunch Money expenses not yet backfilled into Expenses table. Same pattern as Stripe: append rows with `Source=LunchMoney` and the dashboard lights up automatically. Until then, only Venmo expenses are counted.
 - 🟡 Venmo data extends through 2026-04-30 only. A fresh Venmo .xls export will pick up May activity.
+- 🟡 Airtable automation needed to auto-link new Income/Expense rows to the singleton (see Phase A.5 below).
 - 🟡 Two rollups + one formula on Events still need to be added (Phase A below — can't be done via API)
 - 🟡 Seven views still need to be created (Phase B — can't be done via API)
 - 🟡 The Interface itself needs to be assembled (Phase C — designer is UI-only)
@@ -108,6 +110,26 @@ Verify: every event row now shows a dollar amount. For events with matched Venmo
 4. Click **Save**.
 
 Skip this if you'd rather keep `Net Revenue` as a pure Stripe-only figure and use `Total Revenue` separately. Either is defensible — just be consistent.
+
+---
+
+### A.5 Add Automation: auto-link new transactions to the Cash Flow singleton
+
+The `Net Cash Flow This Month` number depends on every Income and Expense row having its `Cash Flow Aggregate` field linked to the singleton row. The existing 796 rows are already linked. This automation keeps that invariant true going forward.
+
+You'll create **two automations** with the same shape — one for Income, one for Expenses.
+
+1. Open the base, click **Automations** at the top.
+2. Click **+ Create automation**. Name it: `Income → Link to Cash Flow singleton`.
+3. **Trigger:** "When record is created" → Table: **Income**.
+4. **Action:** "Update record"
+   - Record ID: use the dynamic value from the trigger (the newly-created Income record).
+   - Field to update: `Cash Flow Aggregate`
+   - Value: the singleton record ID `reclTVXOuxO9kV24j` (or pick it via the record picker — there's only one row in Dashboard Aggregates).
+5. **Test the automation** with a sample record, then **Turn on**.
+6. Repeat for **Expenses** (new automation: `Expenses → Link to Cash Flow singleton`, same shape but trigger on Expenses table).
+
+Verify: create one test Income row manually. Within ~30 seconds it should auto-link. Then delete the test row.
 
 ---
 
@@ -216,7 +238,9 @@ Today the Income table contains Venmo only. When Stripe is backfilled into Incom
    - Source: Expenses table, `Dashboard — Active` view
    - Calculation: SUM of `Amount` where `Is Current Month` = 1
 3. **Number element** — "Net Cash Flow This Month"
-   - Airtable Interfaces can't subtract across tables in a single Number element. Workaround: place elements 1 and 2 side-by-side and let the viewer compute, or defer to the Monthly Financials rollup in the Stretch section.
+   - Source: **Dashboard Aggregates** table (singleton — 1 row, "Cash Flow")
+   - Field summary → Field: **Net Cash Flow This Month** → aggregation: Sum (only one row exists, so Sum just reads the value)
+   - No filter needed.
 4. **Number element** — "Subscription Floor"
    - Source: Subscriptions table, `Dashboard — Active Floor` view
    - Calculation: SUM of `Monthly Cost`
@@ -305,15 +329,17 @@ This gives you Airtable-native auth (email-based, 2FA-able through Google/etc.),
 
 ---
 
-## Stretch — Build Monthly Financials Properly Later
+## Stretch — Populate Monthly Financials for historical P&L
 
-The existing `Monthly Financials` table is empty. If you want a clean monthly P&L row that the dashboard can display directly (instead of doing the math in Interface number elements), you'd:
+The `Net Cash Flow This Month` number is already live via the `Dashboard Aggregates` singleton — that solves the "current month" question.
+
+The empty `Monthly Financials` table (15 fields, one row per month) is a separate, complementary thing: it stores **historical** P&L rows so you can chart 12-month trends without re-aggregating every page load. Build it when you want that view:
 
 1. Build Scenario 6 in Make.com (already listed as planned).
-2. On the 1st of each month, it rolls up the prior month: sum Events.Total Revenue, sum Expenses.Amount where Exclude=false, sum Facilitator Payouts, etc. → writes one Monthly Financials row.
-3. The Overview page would then show 12 rows in a line chart with one query — much cleaner than per-element filters.
+2. On the 1st of each month, it writes one Monthly Financials row for the prior month: Gross Revenue, Total Expenses, Subscription Floor, Net Profit, etc.
+3. Add a line chart on the Overview page sourced from Monthly Financials.
 
-Defer this until you've used the dashboard for a month and know it's worth the investment.
+Defer this until you've used the dashboard for a month and know which monthly metrics matter most.
 
 ---
 
