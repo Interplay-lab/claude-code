@@ -28,12 +28,13 @@ These three fields are what makes per-event profitability work. They require Air
 3. Field name: `Venmo Channel Revenue`
 4. Field type: **Rollup**
 5. Configuration:
-   - **Linked records:** the link to `Income` (Airtable auto-created this when we added the Income table; it's probably called "Income" — look for the `multipleRecordLinks` field that points at Income)
-   - **Field to roll up:** `Amount`
+   - **Select rollup source:** the link to `Income` (Airtable auto-created this when we added the Income table; it's probably called "Income" — look for the `multipleRecordLinks` field that points at Income)
+   - **Field you want to roll up:** `Amount`
+   - **Toggle on:** "Only include linked records from the Income table that meet certain conditions"
+   - Set the condition to: **Where** `Source` **is** `Venmo` (future-proofs against Cash App or other channels added later). If `Source` doesn't appear in the dropdown, leave the filter off for now and add it once we have multiple channels.
    - **Aggregation formula:** `SUM(values)`
-   - **Filter:** optional — only sum where `{Source} = "Venmo"` (we currently only have Venmo income, but this future-proofs against Cash App rows later). To do this, set the formula to: `SUM(IF(ARRAYJOIN({Source}, ',') = "Venmo", values, 0))` — actually simpler: just use `SUM(values)` and trust that this rollup is only meant for Venmo. We can refine later.
-   - **Format:** Currency, $, 2 decimals
-6. **Save**.
+   - **Format tab:** Currency, $, 2 decimals
+6. **Create**.
 
 You should see non-zero values for events that have linked Income rows (about 28% of events — the rest only had ticket-tailor revenue, which is already in `Gross Revenue`).
 
@@ -43,12 +44,13 @@ You should see non-zero values for events that have linked Income rows (about 28
 2. Field name: `Total Cost from Expenses`
 3. Field type: **Rollup**
 4. Configuration:
-   - **Linked records:** the link to `Expenses` (named `Expenses` — should already exist as an inverse of `Expenses.Linked Event`)
-   - **Field to roll up:** `Amount`
+   - **Select rollup source:** the link to `Expenses` (named `Expenses` — should already exist as an inverse of `Expenses.Linked Event`)
+   - **Field you want to roll up:** `Amount`
+   - **Toggle on:** "Only include linked records from the Expenses table that meet certain conditions"
+   - Set the condition to: **Where** `Exclude from Financials` **is unchecked** (when you pick a checkbox field, the operator dropdown shows checkbox-specific options — no value field is needed)
    - **Aggregation formula:** `SUM(values)`
-   - **Filter:** `NOT({Exclude from Financials})` — exclude bank-transfer rows
-   - **Format:** Currency, $, 2 decimals
-5. **Save**.
+   - **Format tab:** Currency, $, 2 decimals
+5. **Create**.
 
 Note: today this will be $0 for most events because the Venmo backfill didn't link expenses to events (Linked Event is empty on Expenses). That's fine — it's the field we'll use going forward as you tag expenses to events.
 
