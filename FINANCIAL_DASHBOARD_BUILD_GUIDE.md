@@ -10,6 +10,7 @@
 - ✅ `Month` formula field added to Expenses, Income, and Events
 - ✅ `Is Current Month` formula field added to Expenses, Income, and Events (auto-rolls each calendar month — used by dashboard "this month" filters)
 - ✅ All Venmo-imported rows flagged `Needs Violet Review = true`
+- 🟡 Stripe transactions not yet backfilled into Income table. Dashboard is built for cash-basis accounting with Income as the source of truth, so Stripe just needs to be appended as `Source=Stripe` rows later — no dashboard changes required.
 - 🟡 Two rollups + one formula on Events still need to be added (Phase A below — can't be done via API)
 - 🟡 Seven views still need to be created (Phase B — can't be done via API)
 - 🟡 The Interface itself needs to be assembled (Phase C — designer is UI-only)
@@ -200,25 +201,28 @@ Switch to the **Subscriptions** table tab.
 
 **Layout:** Dashboard layout
 
+**Accounting basis: cash, not accrual.** Overview "this month" numbers come from the Income and Expenses tables (per-transaction ledgers, dated when money moved) — NOT from Events. The Events page (Page 2) keeps the accrual lens for per-event profitability.
+
+Today the Income table contains Venmo only. When Stripe is backfilled into Income later (as `Source=Stripe` rows with charge dates), these numbers automatically become complete with zero dashboard changes.
+
 **Add elements (top to bottom, left to right):**
 
-1. **Number element** — "Gross Revenue This Month"
-   - Source: Events table, `Dashboard — Past Events` view
-   - Calculation: SUM of `Total Revenue` where `Is Current Month` = 1
+1. **Number element** — "Revenue This Month"
+   - Source: Income table, `Dashboard — Active` view
+   - Calculation: SUM of `Amount` where `Is Current Month` = 1
 2. **Number element** — "Total Expenses This Month"
    - Source: Expenses table, `Dashboard — Active` view
    - Calculation: SUM of `Amount` where `Is Current Month` = 1
-3. **Number element** — "Net Profit This Month"
-   - Source: Events (same view)
-   - Calculation: SUM of `Net Revenue` — sum of `Expenses.Amount` for this month. Note: Airtable Interfaces can't subtract across tables in one number element — workaround is to add both numbers side-by-side and let the viewer compute. Or use a formula field on a synthetic Monthly Financials table (deferred — see "Stretch" below).
+3. **Number element** — "Net Cash Flow This Month"
+   - Airtable Interfaces can't subtract across tables in a single Number element. Workaround: place elements 1 and 2 side-by-side and let the viewer compute, or defer to the Monthly Financials rollup in the Stretch section.
 4. **Number element** — "Subscription Floor"
    - Source: Subscriptions table, `Dashboard — Active Floor` view
    - Calculation: SUM of `Monthly Cost`
 5. **Chart element** — "Revenue trend (12 months)"
-   - Source: Events table, `Dashboard — Past Events` view
+   - Source: Income table, `Dashboard — Active` view
    - Type: Line chart
    - X-axis: `Month` (group)
-   - Y-axis: SUM of `Total Revenue`
+   - Y-axis: SUM of `Amount`
 6. **Chart element** — "Expenses by category (this month)"
    - Source: Expenses table, `Dashboard — Active` view
    - Type: Donut
