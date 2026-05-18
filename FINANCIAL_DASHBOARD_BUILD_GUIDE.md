@@ -8,6 +8,7 @@
 - ✅ Income table created and populated (~398 Venmo income rows)
 - ✅ Events table populated (39 events with Partiful metadata)
 - ✅ `Month` formula field added to Expenses, Income, and Events
+- ✅ `Is Current Month` formula field added to Expenses, Income, and Events (auto-rolls each calendar month — used by dashboard "this month" filters)
 - ✅ All Venmo-imported rows flagged `Needs Violet Review = true`
 - 🟡 Two rollups + one formula on Events still need to be added (Phase A below — can't be done via API)
 - 🟡 Seven views still need to be created (Phase B — can't be done via API)
@@ -203,10 +204,10 @@ Switch to the **Subscriptions** table tab.
 
 1. **Number element** — "Gross Revenue This Month"
    - Source: Events table, `Dashboard — Past Events` view
-   - Calculation: SUM of `Total Revenue` where `Month` = `THIS_MONTH` (use Airtable's filter pane to filter by current month)
+   - Calculation: SUM of `Total Revenue` where `Is Current Month` = 1
 2. **Number element** — "Total Expenses This Month"
    - Source: Expenses table, `Dashboard — Active` view
-   - Calculation: SUM of `Amount` where `Month` = `THIS_MONTH`
+   - Calculation: SUM of `Amount` where `Is Current Month` = 1
 3. **Number element** — "Net Profit This Month"
    - Source: Events (same view)
    - Calculation: SUM of `Net Revenue` — sum of `Expenses.Amount` for this month. Note: Airtable Interfaces can't subtract across tables in one number element — workaround is to add both numbers side-by-side and let the viewer compute. Or use a formula field on a synthetic Monthly Financials table (deferred — see "Stretch" below).
@@ -222,7 +223,7 @@ Switch to the **Subscriptions** table tab.
    - Source: Expenses table, `Dashboard — Active` view
    - Type: Donut
    - Slice by: `Category`
-   - Filter: `Month` = `THIS_MONTH`
+   - Filter: `Is Current Month` = 1
    - Aggregate: SUM of `Amount`
 7. **Number element** — "Review queue size"
    - Source: Expenses table, `Dashboard — Review Queue` view
@@ -315,7 +316,7 @@ Defer this until you've used the dashboard for a month and know it's worth the i
 - **The Month formula shows blank.** Check that the row has a `Date` value. Transfer rows and a few historical rows may legitimately have no date.
 - **Venmo Channel Revenue is $0 for all events.** Check that the matching pass linked Income to Events. If most income rows are `Unmatched`, the rollup is mostly zero by design. Re-run matching (with smarter rules) or manually link in Tab 4b.
 - **Total Cost from Expenses is $0.** Today this is expected — the Venmo backfill didn't auto-link expenses to events. Linking happens manually as you tag rows in Tab 4a.
-- **The number elements feel like they're showing the wrong period.** Airtable Interfaces apply "current month" based on the viewer's timezone; double-check it matches yours.
+- **The number elements feel like they're showing the wrong period.** The `Is Current Month` formula uses `TODAY()`, which Airtable recalculates roughly daily (not at midnight sharp). On the 1st of the month, the rollover can lag a few hours. For a dashboard reviewed weekly, this is fine.
 
 ---
 
