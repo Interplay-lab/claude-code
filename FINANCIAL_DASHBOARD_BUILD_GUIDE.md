@@ -19,61 +19,89 @@ This document walks Phases A → B → C. Plan ~30-45 min to complete.
 
 ## Phase A — Add Two Rollups and One Formula on Events
 
-These three fields are what makes per-event profitability work. They require Airtable's UI.
+All three new fields go on the **Events** table. Stay on that table for the whole phase.
 
-### A.1 Create rollup: **Venmo Channel Revenue**
+**How to start each subsection (A.1, A.2, A.3) — same starting point every time:**
 
-1. Open the **Events** table.
-2. Right-click any column header → **Insert field right**.
-3. Field name: `Venmo Channel Revenue`
-4. Field type: **Rollup**
-5. Configuration:
-   - **Select rollup source:** the link to `Income` (Airtable auto-created this when we added the Income table; it's probably called "Income" — look for the `multipleRecordLinks` field that points at Income)
-   - **Field you want to roll up:** `Amount`
-   - **Toggle on:** "Only include linked records from the Income table that meet certain conditions"
-   - Set the condition to: **Where** `Source` **is** `Venmo` (future-proofs against Cash App or other channels added later). If `Source` doesn't appear in the dropdown, leave the filter off for now and add it once we have multiple channels.
-   - **Aggregation formula:** `SUM(values)`
-   - **Format tab:** Currency, $, 2 decimals
-6. **Create**.
+1. Open the base, click the **Events** table tab at the top.
+2. Scroll right until you see the last column. The very last column header is `+` (plus icon). Click it.
+3. A "Create field" panel opens on the right side of the screen with a name input and a type dropdown.
 
-You should see non-zero values for events that have linked Income rows (about 28% of events — the rest only had ticket-tailor revenue, which is already in `Gross Revenue`).
+That's your starting point for each of A.1, A.2, and A.3 below.
 
-### A.2 Create rollup: **Total Cost from Expenses**
+---
 
-1. Same drill — **Insert field right** on Events.
-2. Field name: `Total Cost from Expenses`
-3. Field type: **Rollup**
-4. Configuration:
-   - **Select rollup source:** the link to `Expenses` (named `Expenses` — should already exist as an inverse of `Expenses.Linked Event`)
-   - **Field you want to roll up:** `Amount`
-   - **Toggle on:** "Only include linked records from the Expenses table that meet certain conditions"
-   - Set the condition to: **Where** `Exclude from Financials` **is unchecked** (when you pick a checkbox field, the operator dropdown shows checkbox-specific options — no value field is needed)
-   - **Aggregation formula:** `SUM(values)`
-   - **Format tab:** Currency, $, 2 decimals
-5. **Create**.
+### A.1 Create rollup: `Venmo Channel Revenue`
 
-Note: today this will be $0 for most events because the Venmo backfill didn't link expenses to events (Linked Event is empty on Expenses). That's fine — it's the field we'll use going forward as you tag expenses to events.
+Starting from a fresh "Create field" panel on Events:
 
-### A.3 Create formula: **Total Revenue (all channels)**
+1. **Name:** type `Venmo Channel Revenue`
+2. **Type:** click the type dropdown → choose **Rollup** (search "rollup" if you don't see it).
+3. **Select rollup source** (linked records to summarize): pick the link field that points to **Income**. It's likely just named `Income` — it's the inverse field Airtable auto-created when we built the Income table.
+4. **Field you want to roll up:** pick `Amount`.
+5. Toggle on **"Only include linked records from the Income table that meet certain conditions"**.
+6. In the condition row that appears: **Where** → `Source` → **is** → `Venmo`.
+   - If `Source` isn't in the dropdown, leave the toggle off entirely — you can come back and add it later. Today every Income row is `Source=Venmo` anyway.
+7. Confirm **Aggregation formula** is `SUM(values)` (it's the default).
+8. Click the **Formatting** tab at the top of the panel. Set **Format** → **Currency**, **Symbol** → `$`, **Precision** → 2.
+9. Click **Create** at the bottom right of the panel.
 
-1. Insert field right.
-2. Field name: `Total Revenue`
-3. Field type: **Formula**
-4. Formula:
+Verify: a new column `Venmo Channel Revenue` appears on the right. Most events will show $0; events that had matched Venmo income will show dollar values (about 28% of events).
+
+---
+
+### A.2 Create rollup: `Total Cost from Expenses`
+
+Back on Events. Click the `+` at the end of the columns again to open a fresh "Create field" panel.
+
+1. **Name:** `Total Cost from Expenses`
+2. **Type:** **Rollup**
+3. **Select rollup source:** the link field that points to **Expenses** (likely named `Expenses`).
+4. **Field you want to roll up:** `Amount`
+5. Toggle on **"Only include linked records from the Expenses table that meet certain conditions"**.
+6. In the condition row: **Where** → `Exclude from Financials` → **is unchecked**.
+   - When you pick a checkbox field, the operator dropdown changes to checkbox-specific options. No value field is needed.
+7. **Aggregation formula:** `SUM(values)` (default).
+8. **Formatting** tab → Currency, $, 2 decimals.
+9. Click **Create**.
+
+Note: today most events will show $0 here because almost no Expenses rows have `Linked Event` set yet. That's correct — this field becomes useful as you and Violet tag expenses to events over time.
+
+---
+
+### A.3 Create formula: `Total Revenue`
+
+Back on Events. Click the `+` at the end of the columns one more time to open a fresh "Create field" panel.
+
+1. **Name:** `Total Revenue`
+2. **Type:** **Formula**
+3. A formula editor appears in the panel. Paste exactly:
    ```
    {Gross Revenue} + IF({Venmo Channel Revenue}, {Venmo Channel Revenue}, 0)
    ```
-5. Format: Currency, $, 2 decimals.
+   - The editor should show no red error. If it does, double-check the field names match exactly what you used in A.1 (case-sensitive: `Venmo Channel Revenue` not `venmo channel revenue`).
+4. Click the **Formatting** tab → **Format as currency** → $, 2 decimals.
+5. Click **Create**.
 
-### A.4 Optional: update `Net Revenue` to use Total Revenue
+Verify: every event row now shows a dollar amount. For events with matched Venmo income, this should be larger than `Gross Revenue` alone.
 
-The existing `Net Revenue` formula is `Gross - Refunds - Venue Cost - Stripe Fees`. To include Venmo income, change it to:
+---
 
-```
-{Total Revenue} - {Refunds} - {Venue Cost} - {Stripe Fees}
-```
+### A.4 (Optional) Update `Net Revenue` to include Venmo income
 
-(Right-click `Net Revenue` → **Edit field** → update formula → Save.)
+`Net Revenue` already exists as a formula on Events. Its current formula is `{Gross Revenue} - {Refunds} - {Venue Cost} - {Stripe Fees}`. That misses Venmo income.
+
+To include it:
+
+1. On Events, find the `Net Revenue` column. Right-click the column header.
+2. Click **Edit field**.
+3. In the formula editor, replace the formula with:
+   ```
+   {Total Revenue} - {Refunds} - {Venue Cost} - {Stripe Fees}
+   ```
+4. Click **Save**.
+
+Skip this if you'd rather keep `Net Revenue` as a pure Stripe-only figure and use `Total Revenue` separately. Either is defensible — just be consistent.
 
 ---
 
