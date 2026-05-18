@@ -89,15 +89,17 @@ Verify: every event row now shows a dollar amount. For events with matched Venmo
 
 ### A.4 (Optional) Update `Net Revenue` to include Venmo income
 
-`Net Revenue` already exists as a formula on Events. Its current formula is `{Gross Revenue} - {Refunds} - {Venue Cost} - {Stripe Fees}`. That misses Venmo income.
-
-To include it:
+`Net Revenue` already exists as a formula on Events. Its current formula uses defensive `IF({field}, {field}, 0)` wrappers around each term to handle blanks safely — keep that style; just swap the first reference from `{Gross Revenue}` to `{Total Revenue}`.
 
 1. On Events, find the `Net Revenue` column. Right-click the column header.
 2. Click **Edit field**.
-3. In the formula editor, replace the formula with:
+3. In the formula editor, the existing formula reads roughly:
    ```
-   {Total Revenue} - {Refunds} - {Venue Cost} - {Stripe Fees}
+   {Gross Revenue} - IF({Refunds}, {Refunds}, 0) - IF({Venue Cost}, {Venue Cost}, 0) - IF({Stripe Fees}, {Stripe Fees}, 0)
+   ```
+   Change only the first reference. Final formula:
+   ```
+   {Total Revenue} - IF({Refunds}, {Refunds}, 0) - IF({Venue Cost}, {Venue Cost}, 0) - IF({Stripe Fees}, {Stripe Fees}, 0)
    ```
 4. Click **Save**.
 
