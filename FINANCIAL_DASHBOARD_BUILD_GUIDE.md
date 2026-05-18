@@ -107,39 +107,85 @@ Skip this if you'd rather keep `Net Revenue` as a pure Stripe-only figure and us
 
 ---
 
-## Phase B — Create the Seven Views
+## Phase B — Create 8 Named Views
 
-Each Interface page below pulls from a named view. Pre-creating these makes the Interface build mechanical.
+You'll create 8 views total: 3 on Expenses, 2 on Income, 2 on Events, 1 on Subscriptions. Each Interface page in Phase C reads from one of these views — pre-naming them makes the Interface build mechanical.
 
-For each: open the table, click **+ Create view** (left panel), pick the view type, name it exactly as shown, then set the filters.
+**How to create a view (same pattern every time):**
 
-### B.1 Expenses table
+1. Open the base.
+2. Click the table tab at the top (e.g. `Expenses`).
+3. Look at the **left sidebar**. You'll see existing views (like `Grid view`). At the top of that sidebar, click **+ Create new...**
+4. A picker appears with view types — Grid, Calendar, Gallery, Kanban, etc. For everything in this phase, pick **Grid**.
+5. Name the view exactly as listed below (the name matters — Phase C references these by name).
+6. The new view opens. Now apply filters and sort:
+   - **Filter:** click the funnel icon ⨄ in the toolbar above the records → **+ Add condition** → pick the field + operator + value as listed.
+   - **Sort:** click the sort icon (the two arrows) in the toolbar → **+ Add sort** → pick the field + direction.
+   - **Group** (only B.1's "By Month" view): click the group icon → **+ Add group** → pick `Month` → direction `Z → A` (descending).
+7. The view auto-saves; nothing to click to confirm. Click the table tab to leave; the view stays in the sidebar.
 
-| View name | Type | Filter | Sort |
-|---|---|---|---|
-| `Dashboard — Active` | Grid | `Exclude from Financials` is unchecked | `Date` desc |
-| `Dashboard — Review Queue` | Grid | `Needs Violet Review` is checked | `Date` desc |
-| `Dashboard — By Month` | Grid (grouped) | `Exclude from Financials` is unchecked | Group by `Month` desc, then `Amount` desc |
+That's the entire mechanic. Repeat 8 times below.
 
-### B.2 Income table
+---
 
-| View name | Type | Filter | Sort |
-|---|---|---|---|
-| `Dashboard — Active` | Grid | (no filter) | `Date` desc |
-| `Dashboard — Unmatched` | Grid | `Match Confidence` is `Unmatched` | `Date` desc |
+### B.1 Expenses table — 3 views
 
-### B.3 Events table
+Switch to the **Expenses** table tab.
 
-| View name | Type | Filter | Sort |
-|---|---|---|---|
-| `Dashboard — Past Events` | Grid | `Status` is `Held` | `Date` desc |
-| `Dashboard — Upcoming Events` | Grid | `Status` is `Scheduled` | `Date` asc |
+**View 1: `Dashboard — Active`**
+- Filter: `Exclude from Financials` → **is unchecked**
+- Sort: `Date` → descending
 
-### B.4 Subscriptions table
+**View 2: `Dashboard — Review Queue`**
+- Filter: `Needs Violet Review` → **is checked**
+- Sort: `Date` → descending
 
-| View name | Type | Filter | Sort |
-|---|---|---|---|
-| `Dashboard — Active Floor` | Grid | `Status` is `Active` | `Monthly Cost` desc |
+**View 3: `Dashboard — By Month`**
+- Filter: `Exclude from Financials` → **is unchecked**
+- Group: `Month` → descending (this collapses the table into month sections)
+- Sort within group: `Amount` → descending
+
+---
+
+### B.2 Income table — 2 views
+
+Switch to the **Income** table tab.
+
+**View 1: `Dashboard — Active`**
+- Filter: none
+- Sort: `Date` → descending
+
+**View 2: `Dashboard — Unmatched`**
+- Filter: `Match Confidence` → **is** → `Unmatched`
+- Sort: `Date` → descending
+
+---
+
+### B.3 Events table — 2 views
+
+Switch to the **Events** table tab.
+
+**View 1: `Dashboard — Past Events`**
+- Filter: `Status` → **is** → `Held`
+- Sort: `Date` → descending
+
+**View 2: `Dashboard — Upcoming Events`**
+- Filter: `Status` → **is** → `Scheduled`
+- Sort: `Date` → ascending
+
+---
+
+### B.4 Subscriptions table — 1 view
+
+Switch to the **Subscriptions** table tab.
+
+**View 1: `Dashboard — Active Floor`**
+- Filter: `Status` → **is** → `Active`
+- Sort: `Monthly Cost` → descending
+
+---
+
+**Verify Phase B is done:** open each table's sidebar in turn — you should see the views above by name, each with a small filter icon next to it (indicating filters are applied). Total views created across all tables: 8.
 
 ---
 
