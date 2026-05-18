@@ -11,6 +11,8 @@
 - ✅ `Is Current Month` formula field added to Expenses, Income, and Events (auto-rolls each calendar month — used by dashboard "this month" filters)
 - ✅ All Venmo-imported rows flagged `Needs Violet Review = true`
 - 🟡 Stripe transactions not yet backfilled into Income table. Dashboard is built for cash-basis accounting with Income as the source of truth, so Stripe just needs to be appended as `Source=Stripe` rows later — no dashboard changes required.
+- 🟡 Lunch Money expenses not yet backfilled into Expenses table. Same pattern as Stripe: append rows with `Source=LunchMoney` and the dashboard lights up automatically. Until then, only Venmo expenses are counted.
+- 🟡 Venmo data extends through 2026-04-30 only. A fresh Venmo .xls export will pick up May activity.
 - 🟡 Two rollups + one formula on Events still need to be added (Phase A below — can't be done via API)
 - 🟡 Seven views still need to be created (Phase B — can't be done via API)
 - 🟡 The Interface itself needs to be assembled (Phase C — designer is UI-only)
