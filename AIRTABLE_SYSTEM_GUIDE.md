@@ -38,7 +38,10 @@ Supporting systems: Zoom (online events), Google Calendar (scheduling), Toggl (t
 | Ticket Tailor → Airtable | 4983848 | ❌ Broken/inactive | TT new orders | Creates Attendance records (needs rebuild) |
 | Ticket Tailor → ActiveCampaign | 4798719 | ❌ Broken/inactive | TT new orders | Old combined scenario; superseded; Google Sheets connection deleted |
 | Affiliate Signup → TT Discount Code | 5008276 | 🚧 Draft | Airtable Affiliates trigger | Creates TT voucher, sends welcome email (partially built) |
-| QuickBooks → Expenses | 4998282 | ❌ Deprecated 2026-05-17 | Daily schedule | **Deactivated.** Replaced by Lunch Money pipeline (planned) + Venmo .xls backfill. The 169 QB-sourced rows previously imported were deleted on 2026-05-17 ahead of cutover. |
+| **5d: Lunch Money → Expenses (Rolling 90d)** | **5106015** | **✅ Active** | **Hourly schedule** | **Re-pulls the last 90 days of LM transactions and upserts into Expenses (keyed on `External ID = lm_<txn id>`). Rolling window self-heals bookkeeper edits made in LM — corrections flow back to Airtable on the next run. Sets Vendor, Amount, Date, Category, Account, Source="Lunch Money", Frequency (from LM tags), Lunch Money Tags, and Exclude from Financials.** |
+| **ONE-OFF: Lunch Money Backfill (all-time)** | **5106018** | **⏸ Paused (on-demand)** | **Manual** | **Same blueprint as 5106015 but with `start_date = 2020-01-01`. Run once to backfill historical LM transactions before the 90-day rolling window. Idempotent with the rolling scenario via shared External ID.** |
+| **ONE-OFF: Lunch Money Category Setup** | **5072387** | **✅ Ran 2026-05-15 (paused)** | **Manual** | **One-time scenario that created the LM category groups + categories to mirror the Airtable `Expenses.Category` singleSelect options exactly. Enables 1:1 category mapping during sync.** |
+| QuickBooks → Expenses | 4998282 | ❌ Deprecated 2026-05-17 | Daily schedule | **Deactivated** in favor of the Lunch Money pipeline (5106015/5106018). The 169 QB-sourced rows previously imported were deleted ahead of the cutover. Keep around for blueprint reference; safe to delete after LM has fully replaced it. |
 | Zoom → Google Drive Archive | 4956915 | ❌ Inactive | Zoom recording webhook | Archives Zoom recordings to Google Drive (0 executions) |
 
 **Make.com connections in use:**
@@ -49,13 +52,26 @@ Supporting systems: Zoom (online events), Google Calendar (scheduling), Toggl (t
 - Datastore 97722 — TT event ID → Zoom meeting ID mapping (used by 5032912)
 
 **Scenarios not yet built (planned):**
-- Scenario 5a: Lunch Money → Expenses (replaces deprecated QB scenario 4998282; primary transactional outflow feed)
+- ~~Scenario 5a: Lunch Money → Expenses~~ — **DONE 2026-05-18 as scenario 5106015 (rolling) + 5106018 (backfill).** Note: the "5d:" prefix in the rolling scenario's name is the LM-flow scenario letter, not the legacy "5d Venue Payout" plan letter — naming collision; rename if confusing.
 - Scenario 5b: Stripe fees → Expenses (note: F1 already writes calculated fees to Events; 5b would be a separate per-transaction log to Expenses) — extending to also pull non-TT Stripe refunds as contra-income
 - Scenario 5c: PayPal outflows → Expenses + reconcile Venue Payouts
-- Scenario 5d: Auto-create Venue Payout 3 days after event
+- Scenario 5d-VP: Auto-create Venue Payout 3 days after event (legacy planning "5d", distinct from the LM scenarios above)
 - Scenario 5e: Income matching re-runner — when Events table gains new records (e.g., Partiful backfill), re-match `Income.Linked Event` for rows currently `Unmatched`
 - Scenario 6: Monthly Financials + KPI Snapshots rollup (runs 1st of month)
 - Monthly Payout Setup: Creates Pay Periods + Profit Share Payouts + Salary Log rows on 1st of month
+
+---
+
+## Airtable Automations
+
+Native Airtable Automations (built in the Automations tab, not Make.com). Used where Make.com's data flow can't cleanly handle optional lookups (the "0-results breaks the chain" problem) or where the logic is simpler to express as record-trigger automations on Airtable's side.
+
+| Automation | Status | Trigger | What it does |
+|---|---|---|---|
+| **Auto-link Expenses to Subscriptions** | ✅ ON (2026-05-18) | Expenses record where `Source = "Lunch Money"` AND `Subscription` is empty AND `Vendor` is not empty | Find Records action looks in the Subscriptions table for the first record whose `Vendor Aliases` contains the Expense's Vendor (case-insensitive substring). If found, sets `Expenses.Subscription` to that record. Frequency is NOT touched here (it's already set by the Make scenario from LM tags). |
+| **Auto-link Event Supply Expenses** | 🚧 In progress (script step needs config) | Expenses record where `Source = "Lunch Money"` AND `Category = "Event Supplies & Materials"` AND `Linked Event` is empty AND `Date` is not empty | Script step fetches all Events, filters to those whose `Date` matches the Expense's `Date`. If exactly 1 match: sets `Linked Event` and copies `Event Name` to `Event Title (Raw)`. If 0 or 2+ matches: skipped for manual review. Implemented as a script because Airtable's Find Records "Condition" UI doesn't allow dynamic-value insertion for date comparisons (only static/relative dates). |
+
+**Retroactive application to existing rows:** Both automations only fire when a record *transitions into* matching the trigger conditions. Existing rows that already match at automation creation time won't auto-process. The simplest way to apply retroactively is to let the next Make scenario 5106015 run re-upsert each LM row — that record update touches the field set, which re-fires the trigger evaluation and runs the automations.
 
 ---
 
@@ -346,57 +362,78 @@ Tags are applied by Make.com scenarios — primarily by "Airtable Attendance →
 
 ### 11. Subscriptions (`tblxwdzaiPnGr5gYx`)
 
-**Purpose:** Master list of recurring tools and services. Source of truth for amortization and the monthly subscription floor.
+**Purpose:** Master list of recurring tools and services Interplay pays for. Source of truth for two things:
+1. **Amortization** — annual charges get smoothed into a monthly equivalent (`Monthly Cost` formula) so monthly run-rate reports don't spike on renewal months.
+2. **Subscription auto-link** — every recurring LM transaction in Expenses links back to one row here, enabling per-subscription rollups (total spent on Adobe YTD, etc.).
 
-| Field | Type | How it arrives |
+**Bootstrap state (as of 2026-05-18):** 7 records seeded from the recurring-tagged LM transactions imported by scenario 5106015: Adobe, Claude AI, Dropbox, Tello, Ticket Tailor, Twilio (all Monthly), and Namecheap (Annual). Add a new row whenever you tag a new recurring vendor in Lunch Money — without a Subscription record, the Auto-link automation will silently leave that Expense's Subscription field empty for manual review.
+
+| Field | Purpose | Automation status |
 |---|---|---|
-| Service Name | Text | **Manual** |
-| Vendor Aliases | Text | **Manual** — alternative names as they appear on bank/QB feeds |
-| Category | Single select | **Manual** |
-| Frequency | Single select (Monthly / Annual / Quarterly) | **Manual** |
-| Amount | Currency | **Manual** — per-cycle charge |
-| Renewal Date | Date | **Manual** |
-| Status | Single select (Active / Cancelled) | **Manual** |
-| Owner | Linked → People | **Manual** |
-| Auto-Pay From | Single select | **Manual** |
-| Monthly Cost | Formula | **Auto** — amortizes to monthly (annual ÷ 12, etc.) |
+| **Service Name** | The canonical/display name of the subscription (e.g., "Adobe", "Namecheap"). Used in dashboards and as the primary record identifier. | **Manual** |
+| **Vendor Aliases** | Multi-line text. One alias per line. **Convention: always include the Service Name as the first line, then add any bank-side payee strings as they appear in Lunch Money** (e.g., `"Recur Debit Card Purchase DROPBOX WDK9BYDNDWM4"` or `"Cheap Com Cgclcw"` for Namecheap). The Airtable Auto-link automation does a case-insensitive substring match: `FIND(LOWER(LM payee), LOWER(Vendor Aliases))`. Adding new aliases here is how you "teach" the system to recognize raw bank strings. | **Manual** — but the match itself is automated |
+| **Category** | Mirrors the Expenses.Category options. Used for grouping (Software, Insurance, etc.) when reporting per-category subscription spend. | **Manual** |
+| **Frequency** | Single select: Monthly / Annual / Quarterly. Drives the `Monthly Cost` formula's amortization division. Should match whatever LM tag is applied (`recurring-monthly` → Monthly, etc.) but is independently editable. | **Manual** |
+| **Amount** | Currency — the per-cycle charge for steady subscriptions. For usage-based services (e.g., Twilio), set to a rolling estimate and note in `Notes`. The actual per-transaction charge always lives on the Expense row, not here. | **Manual** |
+| **Renewal Date** | Date of next renewal. Reference / reminder field; no automation reads it today. | **Manual** |
+| **Status** | Active / Cancelled. Reporting filter. | **Manual** |
+| **Owner** | Linked → People (Staff). Who owns the relationship/decision for this subscription. | **Manual** |
+| **Auto-Pay From** | Single select — which account the charge is auto-pulled from (e.g., Capital One Interplay). | **Manual** |
+| **Notes** | Free text for anything unusual (e.g., Twilio's "usage-based pricing, varies month-to-month"). | **Manual** |
+| **Monthly Cost** | Formula — amortizes to monthly equivalent (`Amount` if Monthly, `Amount/12` if Annual, etc.). The monthly subscription run-rate floor. | **Auto** |
+| **Expenses** | Reverse link from Expenses → Subscription. Auto-populated when the Auto-link automation sets `Expenses.Subscription`. Useful for per-subscription spend totals. | **Auto** (via Expenses link) |
 
-> **Used by Expenses:** When QuickBooks imports a transaction, Make.com fuzzy-matches the vendor against Vendor Aliases and links to this table, setting the Frequency on the Expense row.
+> **Used by Expenses:** The Airtable Automation "Auto-link Expenses to Subscriptions" (triggered on new Lunch Money expense rows) does the substring match against `Vendor Aliases` and links back to this table. Frequency on the Expense row is set separately by Make from the LM tag (not from the matched Subscription) — this means a transaction tagged `recurring-monthly` in LM will get Frequency=Monthly on the Expense even if no Subscription record matches it.
 
 ---
 
 ### 12. Expenses (`tblO7Ux8RvI4l2Eac`)
 
-**Purpose:** Transaction-level outflow ledger. One row per expense. Combines data from Lunch Money, Stripe, PayPal, and Venmo (backfilled).
+**Purpose:** Transaction-level outflow ledger. One row per outflow. Primary feed is Lunch Money (active as of 2026-05-18). Historical Venmo rows imported via .xls backfill. Acts as the canonical expense source for monthly financials, run-rate reports, and the Subscriptions / Event-cost rollups.
 
-| Field | Type | How it arrives |
+**Current state (2026-05-18):** 187 Lunch Money rows (90-day rolling window) + 398 Venmo backfill rows + a handful of manual entries. The Subscriptions table is seeded with the 7 recurring vendors detected in the LM import.
+
+**Lunch Money sync model (important):** Scenario 5106015 re-pulls the last 90 days of LM data **every hour** and upserts on `External ID`. This is intentional — it means any edit a bookkeeper makes in Lunch Money (re-categorize, fix payee, change notes) will flow back to Airtable on the next hourly run within that 90-day window. Outside the 90-day window edits won't auto-propagate; for older corrections, run the backfill scenario (5106018) on-demand.
+
+| Field | Purpose | Automation status |
 |---|---|---|
-| Description | Text | **Auto** — formatted as "YYYY-MM-DD — Vendor — Amount" |
-| Date | Date | **Auto** — from source system |
-| Vendor | Text | **Auto** — from source system |
-| Amount | Currency | **Auto** — from source system |
-| Category | Single select (Software / Venue / Marketing / Contractor / Travel / Insurance / Banking / Office / Misc / Event Supplies / Refunds / Owner Draw / Payroll) | **Auto** — from source category or matched Subscription; flags "Needs Categorization" if no match |
-| Frequency | Single select | **Auto** — from matched Subscription.Frequency |
-| Subscription | Linked → Subscriptions | **Auto** — Make.com vendor fuzzy-match |
-| Account | Single select (Capital One / Stripe / PayPal / Cash / Venmo / Other) | **Auto** — which account the outflow came from |
-| Source | Single select (Lunch Money / Stripe API / PayPal API / Venmo / Manual / CSV Import / QuickBooks-legacy) | **Auto** — set by the import scenario |
-| External ID | Text | **Auto** — LM transaction ID / Stripe charge ID / PayPal txn ID / Venmo txn ID (dedup key) |
-| Monthly Amortized | Formula | **Auto** — spreads annual/quarterly charges evenly |
-| Needs Categorization | Checkbox | **Auto** — checked when Make.com can't match vendor |
-| Needs Violet Review | Checkbox | **Auto** — default true for all newly-imported rows (Venmo, LM); false for trusted/legacy. Used as the bookkeeper review queue. |
-| Exclude from Financials | Checkbox | **Auto/Manual** — true for bank-transfer rows (Venmo→Capital One sweeps) and duplicates. Dashboard rollups respect this flag. |
-| Event Title (Raw) | Text | **Auto** — title extracted from Venmo/Partiful memo (e.g. via `partiful.com 🎟 for "..."` regex). Audit field; not used for matching. |
-| Linked Event | Linked → Events | **Manual** — for event-specific costs |
-| Receipt | Attachment | **Manual** |
-| Linked Venue Payout | Linked → Venue Payouts | **Auto** — set by Scenario 5c when PayPal outflow matches a Venue Payout |
+| **Description** | Single line summary "YYYY-MM-DD — Vendor — $Amount". Used as the primary field for at-a-glance scanning. | **Auto** — set by Make from LM data |
+| **Date** | Transaction date (when the charge posted, per LM). Drives monthly grouping and the Event Supplies date-match automation. | **Auto** — from LM `date` |
+| **Vendor** | The payee string from LM (`payee` field). Used as the match key for the Auto-link Subscription automation against `Subscriptions.Vendor Aliases`. | **Auto** — from LM `payee` |
+| **Amount** | Currency. **Sign convention from LM: positive = outflow (expense), negative = inflow (income/refund).** Negative-amount rows are still synced but are flagged with `Exclude from Financials = true` so they don't pollute expense totals. | **Auto** — from LM `amount` |
+| **Category** | Single select. Mirrors the Lunch Money categories exactly (one-time setup via scenario 5072387). Categories include: Software & Subscriptions, Contractor Pay, Event Supplies & Materials, Venue Rentals, Air & Long-Distance Transport, Ground Transport, Founder Pay – Violet, etc. | **Auto** — direct copy of LM `category_name` |
+| **Frequency** | Single select: Monthly / Annual / One-time. Drives the `Monthly Amortized` formula. **Set from LM tags, NOT from Subscription:** `recurring-monthly` → "Monthly", `recurring-annual` → "Annual", anything else → "One-time". This means new recurring expenses must be tagged in LM (or manually edited here) to amortize correctly. | **Auto** — by Make from LM tags |
+| **Subscription** | Linked → Subscriptions. Connects each recurring expense back to its parent subscription record, enabling per-subscription rollups. | **Auto** — by Airtable Automation "Auto-link Expenses to Subscriptions" (substring match on Vendor Aliases) |
+| **Account** | Single select. Which account the outflow came from. Values get auto-added via typecast as new LM accounts appear. Currently includes: Capital One Interplay, Stripe, PayPal, Cash, Venmo, Other. | **Auto** — from LM `asset_display_name` ‖ `plaid_account_display_name` |
+| **Source** | Single select (Lunch Money / Venmo / Stripe API / PayPal API / Manual / CSV Import / QuickBooks-legacy). Identifies which import pipeline created the row. Trigger for the Airtable Automations (they filter on `Source = "Lunch Money"`). | **Auto** — set by the import scenario |
+| **External ID** | Text — the dedup key. `lm_<txn id>` for Lunch Money rows. Prevents duplicate imports across rolling and backfill scenarios. | **Auto** — `lm_{{lm.id}}` |
+| **Lunch Money Tags** | Multipleselects — mirror of the tags applied in Lunch Money (e.g., `recurring-monthly`, `recurring-annual`, `needs-review`). Auto-populates new options via typecast. **Known cosmetic issue:** an empty `""` option exists on ~160 rows with no LM tags — Make's typecast created it on first sync. Cosmetic only; rename to "(no LM tags)" in the field schema to make it readable. | **Auto** — from LM `tags[].name` |
+| **Review Flags** | Multipleselects — manual workflow flags applied in Airtable for human review. Independent of LM tags. Seeded options: Investigate, Possibly miscategorized, Possibly personal, Possible duplicate, Awaiting receipt, Tax-deductible?, Refund expected, Unusual amount, Subscription review. | **Manual** |
+| **Monthly Amortized** | Formula — divides Annual amounts by 12, leaves Monthly as-is, etc. Use this instead of Amount when computing monthly run-rate so a single $1,200 annual charge doesn't show as a March spike. Use Amount for true cash-flow. | **Auto** — formula |
+| **Needs Categorization** | Checkbox — true when no Category was set. Bookkeeper review queue. | **Auto** — `false` if LM category_name present, `true` otherwise |
+| **Needs Violet Review** | Checkbox — bookkeeper's manual review queue. Default true for legacy/Venmo rows; LM rows currently default false (LM has already been reviewed in its own UI). | **Auto/Manual** |
+| **Exclude from Financials** | Checkbox — when true, the row is omitted from expense totals/rollups but stays in the table for audit. Used to mark income rows (LM `is_income = true`), inter-account transfers (LM `exclude_from_totals = true`), and known duplicates. | **Auto** — `true` if LM `is_income` OR LM `exclude_from_totals`; **Manual** override allowed |
+| **Event Title (Raw)** | Text — name of the event this expense was for. For Venmo rows: auto-extracted from memo via `partiful.com 🎟 for "..."` regex during backfill. For LM rows: auto-set by the Auto-link Event Supply Expenses automation when Category=Event Supplies AND exactly one Event shares the date. | **Auto** for Venmo backfill and Event Supply LM rows; **Manual** for everything else |
+| **Linked Event** | Linked → Events. Connects an expense to a specific event for per-event cost rollups. | **Auto** — by Airtable Automation "Auto-link Event Supply Expenses" when Category=Event Supplies & Materials AND exactly 1 Event matches Date; otherwise **Manual** |
+| **Receipt** | Attachment field for uploaded receipts/invoices. | **Manual** |
+| **Notes** | Multi-line. Make scenario writes a structured dump here: LM transaction ID, original bank-side name, LM-side notes, category group, account, institution, status, recurring info, last-updated timestamp. Useful for debugging and audit; never overwritten by Airtable Automations. | **Auto** — by Make |
+| **Linked Venue Payout** | Linked → Venue Payouts. Set when a PayPal outflow matches a Venue Payout record. | **Auto** — Scenario 5c (not yet built) |
+| **Cash Flow Aggregate** | Linked → ? (rollup target). Reverse-link from a Cash Flow Aggregate record. | **Auto** |
+| **Month** | Formula — `YYYY-MM` derived from Date. Grouping key for monthly reports. | **Auto** |
+| **Is Current Month** | Formula — boolean. Filter for "show me this month's expenses" views. | **Auto** |
 
-**Import sources:**
-- **Lunch Money** — Scenario 5a (planned) — primary transactional feed across Capital One + Stripe + PayPal
+**Import sources (current state):**
+- **Lunch Money** — Active via scenarios 5106015 (hourly rolling 90d) + 5106018 (on-demand all-time backfill, paused). Primary feed for all transactional outflows from accounts LM has visibility into (Capital One Interplay so far).
+- **Venmo** — One-time .xls backfill 2026-05-17 (NEW Venmo + OLD Venmo accounts); ~395 expense rows + 3 transfer rows (Exclude=true). Once LM is connected to your Venmo account, future Venmo activity will arrive through the LM pipeline; the backfill rows remain as historical record.
 - **Stripe fees + non-TT refunds** — Scenario 5b (planned) — per-transaction log
 - **PayPal venue payouts** — Scenario 5c (planned)
-- **Venmo** — One-time .xls backfill 2026-05-17 (NEW Venmo + OLD Venmo accounts); ~395 expense rows + 3 transfer rows (Exclude=true). Going forward, Lunch Money should pick up Venmo activity once the LM connection is in place.
 - **Manual** — cash purchases, unusual items
-- **QuickBooks (legacy)** — Scenario 4998282 deprecated 2026-05-17; the 169 QB-imported rows were deleted ahead of the LM cutover.
+- **QuickBooks (legacy)** — Scenario 4998282 deprecated 2026-05-17; the 169 QB-imported rows were deleted ahead of the LM cutover. The deprecated scenario is paused (not deleted) for reference.
+
+**Known limitations / open items:**
+- **Make-side amount filter doesn't work.** Tried `amount > 0` filter operators (`greater`, `larger`, `number:larger`) — all silently dropped every bundle. Pivoted to syncing all rows and using `Exclude from Financials` to mark income. Functionally equivalent for reports but means income/refund rows physically exist in the table.
+- **Empty `""` Lunch Money Tag.** Mentioned above. Cosmetic; rename in field schema.
+- **Auto-link Event Supply Expenses automation.** Currently in progress — Find Records condition cannot use a dynamic Date value from the trigger record (Airtable UI limitation on date filters). Implementation in progress as a script-only step that fetches Events directly and filters by date in JS.
 
 ---
 
@@ -639,8 +676,18 @@ Daily batch — no-shows
 Toggl (time entries)
     └─→ Make 4985926 ─→ Airtable Time Entries (upsert every 30 min)
 
-QuickBooks (transactions)
-    └─→ Make 4998282 ─→ Airtable Expenses (daily import)  [partial]
+Lunch Money (transactions, rolling 90-day window)
+    └─→ Make 5106015 ─→ Airtable Expenses (hourly upsert keyed on lm_<id>)
+                       ├─→ Sets Vendor, Amount, Date, Category, Account, Source, Frequency (from tags), LM Tags, Exclude flag, Notes
+                       └─→ Triggers two Airtable Automations on each new/updated row:
+                           ├─→ Auto-link Expenses to Subscriptions (matches Vendor against Subscriptions.Vendor Aliases)
+                           └─→ Auto-link Event Supply Expenses (matches Date against Events.Date when Category = Event Supplies & Materials)
+
+Lunch Money (one-time historical backfill, paused on-demand)
+    └─→ Make 5106018 ─→ Airtable Expenses (same blueprint, start_date = 2020-01-01)
+
+QuickBooks (transactions) — DEPRECATED 2026-05-17
+    └─→ Make 4998282 (paused) — replaced by Lunch Money pipeline
 
 Airtable Affiliates (new row)
     └─→ Make 5008276 ─→ TT voucher + welcome email  [draft]
@@ -665,9 +712,12 @@ Monthly (1st of month) [NOT YET BUILT]
 | Facilitator Payout row auto-creation | 🚧 Planned | Auto-create when event Status → Held |
 | Total Registrations auto-fill | 🚧 Planned | Last major Events field still manual; pull from TT order count |
 | Stripe Fees precision | ⚠️ Known limitation | F1 uses flat 2.9% estimate; actual fees include per-transaction $0.30 surcharge. Acceptable for now. |
+| Auto-link Event Supply Expenses (Airtable Automation) | 🚧 In progress 2026-05-18 | Find Records can't dynamically reference trigger Date — refactoring to script-only step that fetches Events and filters in JS. Sub-issue: 2+ events on same date should skip with logged note (handled in script via `length === 1` guard). |
+| LM Make-side income filter | ❌ Won't fix | Make's filter operators (`greater` / `larger` / `number:larger` etc.) silently dropped every bundle when comparing `{{1.amount}}` to `0`. Replaced with `Exclude from Financials` flag on the Airtable side. Income rows physically exist in the table but are excluded from totals. |
+| LM empty `""` Tag pollution | ⚠️ Cosmetic | Make's typecast=true auto-created an empty option in the Lunch Money Tags field for ~160 rows with no LM tags. Tried sending arrays + `null` from Make — Airtable still materialized "". Suggested fix: rename the `""` option to "(no LM tags)" in field schema. |
 | Scenario 5b (Stripe fees → Expenses) | 🚧 Planned | F1 writes fees to Events; 5b would log individual transactions to Expenses table |
 | Scenario 5c (PayPal reconciliation) | 🚧 Planned | Not built |
-| Scenario 5d (Venue Payout auto-creation) | 🚧 Planned | Not built; F3 now computes the amount but doesn't create the Venue Payout row |
+| Scenario 5d-VP (Venue Payout auto-creation) | 🚧 Planned | Not built; F3 now computes the amount but doesn't create the Venue Payout row. (Naming note: distinct from "5d: Lunch Money → Expenses" scenario which is now built.) |
 | Scenario 6 (Monthly Financials + KPIs) | 🚧 Planned | Not built |
 | Monthly Payout Setup automation | 🚧 Planned | Airtable automation to create Pay Periods etc. on 1st of month |
 | Affiliate Scenario A (full flow) | 🚧 Draft | Partially built (5008276), has errors |
