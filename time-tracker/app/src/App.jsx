@@ -1,13 +1,15 @@
 /* App shell + state + nav.
    Replaces the prototype's device-toggle / tweaks panel with real
    responsive detection (useIsDesktop) and a real sign-in gate. */
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { HG } from "./data.js";
 import { Icon } from "./icons.jsx";
 import { Avatar, useTicker, useIsDesktop, fmtClock } from "./components.jsx";
 import { SignIn, Today, Entries } from "./screens.jsx";
 import { Admin } from "./admin.jsx";
 import { Overlays } from "./overlays.jsx";
+import { isLive, signInWithGoogle, signOut, getSession, onAuthChange } from "./lib/supabase.js";
+import { getStaffByEmail } from "./lib/db.js";
 
 const NAV = [
   { key: "today", label: "Timer", icon: "clock" },
@@ -246,14 +248,74 @@ function useApp(device) {
   };
 }
 
+/* Full-screen centered message (loading / blocked states). */
+function Centered({ children }) {
+  return (
+    <div className="app" style={{
+      height: "100%", display: "flex", flexDirection: "column",
+      alignItems: "center", justifyContent: "center", gap: 16, padding: "0 28px",
+      textAlign: "center", background: "var(--bg)",
+    }}>{children}</div>
+  );
+}
+
+/* Shown when a signed-in Google account isn't on the approved-email list. */
+function NotApproved({ email, onSignOut }) {
+  return (
+    <Centered>
+      <div style={{
+        width: 56, height: 56, borderRadius: 16, background: "var(--locked-soft)",
+        color: "var(--locked)", display: "flex", alignItems: "center", justifyContent: "center",
+      }}><Icon name="lock" size={28} stroke={2} /></div>
+      <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>You're not on the list yet</h1>
+      <p style={{ fontSize: 15, color: "var(--text-2)", maxWidth: 320, lineHeight: 1.5, margin: 0 }}>
+        <span className="num" style={{ fontWeight: 700, color: "var(--text)" }}>{email}</span> isn't an
+        approved account. Ask an admin to add it, then sign in again.
+      </p>
+      <button className="btn btn-ghost btn-md" onClick={onSignOut} style={{ marginTop: 4 }}>Sign out</button>
+    </Centered>
+  );
+}
+
 export default function App() {
   const isDesktop = useIsDesktop();
   const device = isDesktop ? "desktop" : "phone";
-  const [signedIn, setSignedIn] = useState(false);
   const app = useApp(device);
 
-  if (!signedIn) {
-    return <SignIn device={device} onContinue={() => setSignedIn(true)} />;
+  // Demo mode (no Supabase configured): the original click-through gate.
+  const [demoSignedIn, setDemoSignedIn] = useState(false);
+
+  // Live mode: real Google session + approved-email gate.
+  const [session, setSession] = useState(null);
+  const [staff, setStaff] = useState(null);
+  const [phase, setPhase] = useState(isLive ? "loading" : "ready"); // loading | ready | blocked
+
+  useEffect(() => {
+    if (!isLive) return;
+    let active = true;
+    const resolve = async (s) => {
+      if (!active) return;
+      setSession(s);
+      if (!s?.user?.email) { setStaff(null); setPhase("ready"); return; }
+      const st = await getStaffByEmail(s.user.email).catch(() => null);
+      if (!active) return;
+      setStaff(st);
+      setPhase(st ? "ready" : "blocked");
+    };
+    getSession().then(resolve);
+    const unsub = onAuthChange(resolve);
+    return () => { active = false; unsub(); };
+  }, []);
+
+  if (isLive) {
+    if (phase === "loading") return <Centered><span style={{ color: "var(--text-3)", fontWeight: 600 }}>Loading…</span></Centered>;
+    if (!session) return <SignIn device={device} onContinue={signInWithGoogle} />;
+    if (phase === "blocked") return <NotApproved email={session.user.email} onSignOut={signOut} />;
+    void staff; // (entries cutover wires staff into useApp next)
+    return device === "phone" ? <PhoneShell app={app} /> : <DesktopShell app={app} />;
   }
+
+  // Demo fallback
+  if (!demoSignedIn) return <SignIn device={device} onContinue={() => setDemoSignedIn(true)} />;
   return device === "phone" ? <PhoneShell app={app} /> : <DesktopShell app={app} />;
 }
