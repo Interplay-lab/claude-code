@@ -17,10 +17,24 @@ function DayCell({ min, long }) {
 }
 
 /* ── ADMIN ───────────────────────────────────────────────── */
+function EmptyTeam() {
+  return (
+    <div className="card" style={{ padding: "48px 24px", textAlign: "center" }}>
+      <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>No team hours yet</div>
+      <div style={{ fontSize: 14, color: "var(--text-2)", maxWidth: 320, margin: "0 auto", lineHeight: 1.5 }}>
+        Your team's logged hours will show up here once people start tracking time.
+      </div>
+    </div>
+  );
+}
+
 export function Admin({ app }) {
   const wide = app.device === "desktop";
-  const flagged = HG.team.filter((m) => m.flag).length;
-  const onTrack = HG.team.filter((m) => m.status === "on-track").length;
+  const team = app.team;
+  const teamWeek = app.teamWeek;
+  if (!team.length) return <EmptyTeam />;
+  const flagged = team.filter((m) => m.flag).length;
+  const onTrack = team.filter((m) => m.status === "on-track").length;
 
   const Stat = ({ label, value, tone }) => (
     <div className="card" style={{ padding: "16px 18px", flex: 1, minWidth: 0 }}>
@@ -47,8 +61,8 @@ export function Admin({ app }) {
 
       {/* stats */}
       <div style={{ display: "flex", gap: 12 }}>
-        <Stat label="Team hours" value={HG.hm(HG.teamWeek)} />
-        <Stat label="On track" value={`${onTrack}/${HG.team.length}`} tone="var(--ok)" />
+        <Stat label="Team hours" value={HG.hm(teamWeek)} />
+        <Stat label="On track" value={`${onTrack}/${team.length}`} tone="var(--ok)" />
         <Stat label="Need review" value={flagged} tone={flagged ? "var(--warn)" : "var(--text)"} />
       </div>
 
@@ -61,7 +75,7 @@ export function Admin({ app }) {
             <div style={{ ...hStyle, textAlign: "right" }}>Week</div>
             <div style={{ ...hStyle, textAlign: "right" }}>Status</div>
           </div>
-          {HG.team.map((m) => (
+          {team.map((m) => (
             <div key={m.name} className="hoverlift" style={{ display: "grid", gridTemplateColumns: "2.4fr repeat(7, 1fr) 0.9fr 1.2fr", alignItems: "center", padding: "11px 16px", borderRadius: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 11, minWidth: 0 }}>
                 <Avatar initials={m.initials} size={36} />
@@ -79,7 +93,7 @@ export function Admin({ app }) {
       ) : (
         /* ── phone: cards ── */
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {HG.team.map((m) => (
+          {team.map((m) => (
             <div key={m.name} className="card" style={{ padding: 16 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <Avatar initials={m.initials} size={42} />

@@ -9,7 +9,7 @@ import { SignIn, Today, Entries } from "./screens.jsx";
 import { Admin } from "./admin.jsx";
 import { Overlays } from "./overlays.jsx";
 import { isLive, signInWithGoogle, signOut, getSession, onAuthChange } from "./lib/supabase.js";
-import { getStaffByEmail } from "./lib/db.js";
+import { getStaffByEmail, listMyEntries, getRunning, startTimer, stopTimer, addManual, updateEntry, deleteEntry as dbDelete } from "./lib/db.js";
 
 const NAV = [
   { key: "today", label: "Timer", icon: "clock" },
@@ -167,14 +167,35 @@ function DesktopShell({ app }) {
   );
 }
 
+/* date helpers — live mode uses the real clock; demo uses the fixed sample week */
+const _pad2 = (n) => String(n).padStart(2, "0");
+const isoOf = (d) => `${d.getFullYear()}-${_pad2(d.getMonth() + 1)}-${_pad2(d.getDate())}`;
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+function mondayOf(d) { const x = new Date(d); x.setHours(12, 0, 0, 0); return addDays(x, -((x.getDay() + 6) % 7)); }
+function weekFrom(monday) { return Array.from({ length: 7 }, (_, i) => isoOf(addDays(monday, i))); }
+function weekLabelOf(week) {
+  const a = new Date(week[0] + "T12:00:00"), b = new Date(week[6] + "T12:00:00");
+  const mo = (d) => d.toLocaleDateString("en-US", { month: "short" });
+  return a.getMonth() === b.getMonth()
+    ? `${mo(a)} ${a.getDate()} – ${b.getDate()}, ${b.getFullYear()}`
+    : `${mo(a)} ${a.getDate()} – ${mo(b)} ${b.getDate()}, ${b.getFullYear()}`;
+}
+
 /* ── App: state + handlers ───────────────────────────────── */
-function useApp(device, user) {
+function useApp(device, user, ctx) {
+  const live = ctx.live;
+  const staffId = ctx.staffId;
+
+  const todayISO = live ? isoOf(new Date()) : "2026-06-03";
+  const yISO     = live ? isoOf(addDays(new Date(), -1)) : "2026-06-02";
+  const week     = live ? weekFrom(mondayOf(new Date())) : HG.WEEK;
+
   const [screen, setScreen] = useState("today");
-  const [entries, setEntries] = useState(HG.entries);
+  const [entries, setEntries] = useState(isLive ? [] : HG.entries);
   const [running, setRunning] = useState(false);
   const [startTs, setStartTs] = useState(Date.now());
-  const [description, setDescription] = useState("Component library cleanup");
-  const [tags, setTags] = useState(["Internal", "Design"]);
+  const [description, setDescription] = useState(isLive ? "" : "Component library cleanup");
+  const [tags, setTags] = useState(isLive ? [] : ["Internal", "Design"]);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
   const [confirm, setConfirm] = useState(null); // entry pending delete
@@ -183,6 +204,7 @@ function useApp(device, user) {
 
   const nowHM = () => new Date().toTimeString().slice(0, 5);
 
+  const runningId = useRef(null);
   const toastTimer = useRef(null);
   const showToast = (msg) => {
     setToast(msg);
@@ -190,21 +212,57 @@ function useApp(device, user) {
     toastTimer.current = setTimeout(() => setToast(null), 2200);
   };
 
-  const toggleTimer = () => {
+  // Live mode: load this person's real entries (and resume a running timer).
+  useEffect(() => {
+    if (!live || !staffId) return;
+    let active = true;
+    setEntries([]); setDescription(""); setTags([]);
+    (async () => {
+      try {
+        const [list, run] = await Promise.all([listMyEntries(staffId), getRunning(staffId)]);
+        if (!active) return;
+        setEntries(list.filter((e) => e.status !== "running"));
+        if (run) {
+          runningId.current = run.id;
+          setStartTs(run.startTs);
+          setDescription(run.description);
+          setTags(run.tags);
+          setRunning(true);
+        }
+      } catch { /* leave empty on error */ }
+    })();
+    return () => { active = false; };
+  }, [live, staffId]);
+
+  const toggleTimer = async () => {
     if (running) {
-      // stop → save entry
-      const startHM = new Date(startTs).toTimeString().slice(0, 5);
-      const dur = Math.max(1, Math.round(elapsed / 60));
-      const ne = {
-        id: Date.now(), date: "2026-06-03", start: startHM, end: nowHM(),
-        description: description || "Untitled", tags: [...tags], dur,
-        status: dur >= 480 ? "needs-review" : "synced",
-      };
-      setEntries((p) => [ne, ...p]);
+      if (live) {
+        try {
+          const saved = await stopTimer(runningId.current);
+          runningId.current = null;
+          setEntries((p) => [saved, ...p]);
+        } catch { /* ignore */ }
+      } else {
+        const startHM = new Date(startTs).toTimeString().slice(0, 5);
+        const dur = Math.max(1, Math.round(elapsed / 60));
+        setEntries((p) => [{
+          id: Date.now(), date: todayISO, start: startHM, end: nowHM(),
+          description: description || "Untitled", tags: [...tags], dur,
+          status: dur >= 480 ? "needs-review" : "synced",
+        }, ...p]);
+      }
       setRunning(false);
       showToast("Timer stopped · entry added");
     } else {
-      setStartTs(Date.now());
+      if (live) {
+        try {
+          const r = await startTimer(staffId, { description, tags });
+          runningId.current = r.id;
+          setStartTs(r.startTs);
+        } catch { /* ignore */ }
+      } else {
+        setStartTs(Date.now());
+      }
       setRunning(true);
     }
   };
@@ -215,36 +273,55 @@ function useApp(device, user) {
   const openEdit = (e) => { setEditingEntry(e); setSheetOpen(true); };
   const closeSheet = () => setSheetOpen(false);
 
-  // delete now asks for confirmation first
+  // delete asks for confirmation first
   const deleteEntry = (e) => setConfirm(e);
   const cancelDelete = () => setConfirm(null);
-  const confirmDelete = () => {
-    if (confirm) setEntries((p) => p.filter((x) => x.id !== confirm.id));
+  const confirmDelete = async () => {
+    const e = confirm;
     setConfirm(null);
+    if (e) {
+      if (live) { try { await dbDelete(e.id); } catch { /* ignore */ } }
+      setEntries((p) => p.filter((x) => x.id !== e.id));
+    }
     showToast("Entry deleted");
   };
 
-  const saveEntry = ({ id, date, start, end, durMin, description, tags, long }) => {
-    const status = long ? "needs-review" : "synced";
-    const rec = { date, start, end: end || start, description, tags, dur: durMin, status };
-    if (id) setEntries((p) => p.map((x) => x.id === id ? { ...x, ...rec } : x));
-    else setEntries((p) => [{ id: Date.now(), ...rec }, ...p]);
+  const saveEntry = async ({ id, date, start, end, durMin, description, tags, long }) => {
     setSheetOpen(false);
+    if (live) {
+      try {
+        if (id) {
+          const u = await updateEntry(id, { date, start, end, durMin, description, tags });
+          setEntries((p) => p.map((x) => x.id === id ? u : x));
+        } else {
+          const c = await addManual(staffId, { date, start, end, durMin, description, tags });
+          setEntries((p) => [c, ...p]);
+        }
+      } catch { /* ignore */ }
+    } else {
+      const status = long ? "needs-review" : "synced";
+      const rec = { date, start, end: end || start, description, tags, dur: durMin, status };
+      if (id) setEntries((p) => p.map((x) => x.id === id ? { ...x, ...rec } : x));
+      else setEntries((p) => [{ id: Date.now(), ...rec }, ...p]);
+    }
     showToast(id ? "Changes saved" : "Entry added");
   };
 
-  const weekMinutes = entries.filter((e) => HG.WEEK.includes(e.date)).reduce((s, e) => s + e.dur, 0);
-  const weekBars = HG.WEEK.map((iso, i) => ({
-    iso, label: HG.WEEKDAYS[i], today: iso === "2026-06-03",
+  const relDay = (iso) => iso === todayISO ? "Today" : iso === yISO ? "Yesterday" : HG.dayName(iso);
+
+  const weekMinutes = entries.filter((e) => week.includes(e.date)).reduce((s, e) => s + e.dur, 0);
+  const weekBars = week.map((iso, i) => ({
+    iso, label: HG.WEEKDAYS[i], today: iso === todayISO,
     min: entries.filter((e) => e.date === iso).reduce((s, e) => s + e.dur, 0),
   }));
 
   return {
-    device, user, screen, setScreen, entries, running, startTs, elapsed,
+    device, user, live, screen, setScreen, entries, running, startTs, elapsed,
     description, setDescription, tags, toggleTag, toggleTimer,
     sheetOpen, editingEntry, openAdd, openEdit, closeSheet, saveEntry,
     deleteEntry, confirm, cancelDelete, confirmDelete, toast,
-    weekMinutes, weekBars,
+    weekMinutes, weekBars, todayISO, week, weekLabel: weekLabelOf(week), relDay,
+    team: live ? [] : HG.team, teamWeek: live ? 0 : HG.teamWeek,
   };
 }
 
@@ -304,7 +381,8 @@ export default function App() {
     role: staff ? (staff.role === "admin" ? "Admin" : "Team member") : "Designer",
   };
 
-  const app = useApp(device, user);
+  const live = isLive && !!staff;
+  const app = useApp(device, user, { live, staffId: staff?.id });
 
   useEffect(() => {
     if (!isLive) return;

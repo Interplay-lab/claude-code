@@ -59,7 +59,7 @@ export function SignIn({ onContinue, device }) {
 /* ── TODAY / TIMER ───────────────────────────────────────── */
 export function Today({ app }) {
   const wide = app.device === "desktop";
-  const todays = app.entries.filter((e) => e.date === "2026-06-03");
+  const todays = app.entries.filter((e) => e.date === app.todayISO);
   const todayTotal = todays.reduce((s, e) => s + e.dur, 0) + (app.running ? Math.floor(app.elapsed / 60) : 0);
 
   return (
@@ -68,7 +68,7 @@ export function Today({ app }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
         <div>
           <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-2)" }}>
-            {new Date("2026-06-03T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+            {new Date(app.todayISO + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
           </div>
           <h2 style={{ fontSize: wide ? 28 : 24, fontWeight: 800, letterSpacing: "-0.02em", margin: "3px 0 0" }}>
             {greeting()}, {app.user.firstName}
@@ -139,7 +139,7 @@ export function Entries({ app }) {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button className="btn btn-quiet btn-sm" style={{ padding: "0 7px", height: 32 }}><Icon name="chevL" size={18} /></button>
-            <div style={{ fontSize: 15, fontWeight: 700 }}>Jun 1 – 7, 2026</div>
+            <div style={{ fontSize: 15, fontWeight: 700 }}>{app.weekLabel}</div>
             <button className="btn btn-quiet btn-sm" style={{ padding: "0 7px", height: 32 }}><Icon name="chevR" size={18} /></button>
           </div>
           <span className="chip chip-tag" style={{ height: 28 }}>This week</span>
@@ -158,7 +158,7 @@ export function Entries({ app }) {
             padding: "13px 0 9px", borderBottom: "1px solid var(--border)",
           }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 9 }}>
-              <span style={{ fontSize: 15.5, fontWeight: 800, whiteSpace: "nowrap" }}>{HG.relDay(g.date)}</span>
+              <span style={{ fontSize: 15.5, fontWeight: 800, whiteSpace: "nowrap" }}>{app.relDay(g.date)}</span>
               <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-3)", whiteSpace: "nowrap" }}>{HG.dayLabel(g.date)}</span>
             </div>
             <span className="num" style={{ fontSize: 14, fontWeight: 800, color: "var(--text-2)" }}>{HG.hm(g.total)}</span>

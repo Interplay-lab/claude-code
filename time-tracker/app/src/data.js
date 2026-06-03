@@ -4,7 +4,7 @@
    Airtable push (see ../../DESIGN.md) is the next milestone. */
 
 export const HG = (function () {
-  const TAGS = ["Client work", "Internal", "Meetings", "Design", "Research", "Writing", "Admin", "1:1"];
+  const TAGS = ["Admin", "Meetings", "Email & comms", "Events", "Bookkeeping", "Data entry", "AI & automation", "Invoicing", "Scheduling", "Content"];
 
   // helpers
   const pad = (n) => String(n).padStart(2, "0");
