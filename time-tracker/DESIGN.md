@@ -34,6 +34,7 @@ push* that Toggl used to do.
 | Edit window | Past entries editable for **14 days**, unless locked |
 | Forgotten timers | **Auto-stop at 8h**, flagged for review |
 | Airtable sync | **One-way, app → Airtable, once per day** |
+| Sync driver | **App-native scheduled function** (no Make, no agent on the hot path) |
 | Source of truth | The **app's own database** (Airtable is a downstream mirror) |
 | Payroll workflow | Stays in **Airtable** (Pay Periods Draft→Approved→Paid); app does not rebuild it |
 
@@ -162,6 +163,20 @@ the app builds no approval UI.**
 ---
 
 ## 7. Daily sync job
+
+**Driver: app-native scheduled function (decided).** The nightly push runs *inside*
+the app (a scheduled Edge Function / cron), not through Make and not through an agent.
+Rationale: this step feeds payroll, so it should be deterministic, idempotent, cheap,
+and auditable — a fixed-shape upsert is exactly the kind of "boring plumbing" that
+belongs in code on a timer. It also keeps the whole system self-contained (no third
+subscription, no external dependency to babysit).
+
+- **Make is not used.** Reproducing the contract in-app means the existing Make
+  scenario (4985926) is retired at cutover, not migrated.
+- **Lester (agent) is optional and off the hot path.** If we want it, an agent can run
+  *after* the sync as a watchdog — verify row counts match, surface anomalies (e.g. a
+  14h day, a missing logger), draft the pay-period summary, and ping the admin. It does
+  not perform the mechanical upsert.
 
 Runs once per day (matching today's cadence). Steps:
 
