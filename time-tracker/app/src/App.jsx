@@ -57,7 +57,7 @@ function PhoneShell({ app }) {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <button className="btn btn-ghost btn-sm" style={{ padding: "0 9px", height: 36 }} onClick={app.openAdd}><Icon name="plus" size={18} /></button>
-            <Avatar initials="MO" size={34} />
+            <Avatar initials={app.user.initials} size={34} />
           </div>
         </div>
         {title && <h2 style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.02em", margin: "6px 0 0", padding: "0 18px", whiteSpace: "nowrap" }}>{title}</h2>}
@@ -133,10 +133,10 @@ function DesktopShell({ app }) {
         </div>
         <div style={{ flex: 1 }} />
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 8px", borderTop: "1px solid var(--border)" }}>
-          <Avatar initials="MO" size={36} />
+          <Avatar initials={app.user.initials} size={36} />
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 13.5, fontWeight: 700, whiteSpace: "nowrap" }}>Maya Okafor</div>
-            <div style={{ fontSize: 11.5, color: "var(--text-3)", fontWeight: 600 }}>Designer</div>
+            <div style={{ fontSize: 13.5, fontWeight: 700, whiteSpace: "nowrap" }}>{app.user.name}</div>
+            <div style={{ fontSize: 11.5, color: "var(--text-3)", fontWeight: 600 }}>{app.user.role}</div>
           </div>
         </div>
       </div>
@@ -168,7 +168,7 @@ function DesktopShell({ app }) {
 }
 
 /* ── App: state + handlers ───────────────────────────────── */
-function useApp(device) {
+function useApp(device, user) {
   const [screen, setScreen] = useState("today");
   const [entries, setEntries] = useState(HG.entries);
   const [running, setRunning] = useState(false);
@@ -240,12 +240,19 @@ function useApp(device) {
   }));
 
   return {
-    device, screen, setScreen, entries, running, startTs, elapsed,
+    device, user, screen, setScreen, entries, running, startTs, elapsed,
     description, setDescription, tags, toggleTag, toggleTimer,
     sheetOpen, editingEntry, openAdd, openEdit, closeSheet, saveEntry,
     deleteEntry, confirm, cancelDelete, confirmDelete, toast,
     weekMinutes, weekBars,
   };
+}
+
+/* Initials from a full name: "Briana Van Dorpe" → "BV". */
+function initialsOf(name) {
+  const w = (name || "").trim().split(/\s+/).filter(Boolean);
+  if (w.length >= 2) return (w[0][0] + w[1][0]).toUpperCase();
+  return (name || "?").slice(0, 2).toUpperCase();
 }
 
 /* Full-screen centered message (loading / blocked states). */
@@ -280,8 +287,6 @@ function NotApproved({ email, onSignOut }) {
 export default function App() {
   const isDesktop = useIsDesktop();
   const device = isDesktop ? "desktop" : "phone";
-  const app = useApp(device);
-
   // Demo mode (no Supabase configured): the original click-through gate.
   const [demoSignedIn, setDemoSignedIn] = useState(false);
 
@@ -289,6 +294,17 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [staff, setStaff] = useState(null);
   const [phase, setPhase] = useState(isLive ? "loading" : "ready"); // loading | ready | blocked
+
+  // Who's signed in — from the staff row in live mode; demo persona otherwise.
+  const fullName = staff?.full_name || "Maya Okafor";
+  const user = {
+    name: fullName,
+    firstName: fullName.split(/\s+/)[0],
+    initials: initialsOf(fullName),
+    role: staff ? (staff.role === "admin" ? "Admin" : "Team member") : "Designer",
+  };
+
+  const app = useApp(device, user);
 
   useEffect(() => {
     if (!isLive) return;

@@ -4,6 +4,14 @@ import { Icon } from "./icons.jsx";
 import { EntryRow, WeekBars, WeekTotal } from "./components.jsx";
 import { TimerCard } from "./timercard.jsx";
 
+/* Time-of-day greeting based on the viewer's local clock. */
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 18) return "Good afternoon";
+  return "Good evening";
+}
+
 /* ── SIGN IN ─────────────────────────────────────────────── */
 export function SignIn({ onContinue, device }) {
   return (
@@ -63,7 +71,7 @@ export function Today({ app }) {
             {new Date("2026-06-03T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
           </div>
           <h2 style={{ fontSize: wide ? 28 : 24, fontWeight: 800, letterSpacing: "-0.02em", margin: "3px 0 0" }}>
-            Good morning, Maya
+            {greeting()}, {app.user.firstName}
           </h2>
         </div>
 
