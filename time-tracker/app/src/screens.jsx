@@ -42,7 +42,7 @@ export function SignIn({ onContinue, device }) {
       </button>
       <div style={{ flex: 1 }} />
       <p style={{ fontSize: 12.5, color: "var(--text-3)", marginBottom: device === "phone" ? 40 : 24, maxWidth: 280, lineHeight: 1.5 }}>
-        Only @relationalinterplay.com accounts. We never post or read your email.
+        Sign in with the Google account you were invited with. We never post or read your email.
       </p>
     </div>
   );

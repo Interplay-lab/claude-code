@@ -26,7 +26,7 @@ push* that Toggl used to do.
 |---|---|
 | Users | **Hourly staff + contractors only** (salaried staff don't track here) |
 | Roles | **Employee** (own time) + **Admin** (sees everyone) |
-| Auth | **Google login**, restricted to the company domain |
+| Auth | **Google login**, limited to an **admin-managed approved-email list** (company *or* personal Gmail — contractors included) |
 | Platforms | **One PWA** — installable on iPhone/Android, runs in desktop browsers |
 | Tracking modes | **Live timer** + **manual entry** (both required) |
 | Projects | None — single company project, not modeled |
@@ -137,8 +137,11 @@ derived, never hand-entered — survives edits and audits.
 ## 6. Business rules
 
 **Identity mapping.** Logged-in `email` → `Staff.Email`. Confirm every active hourly/
-contractor staff member has their login email in `Staff`. (The old `Toggl User ID`
-field is retired as the key.)
+contractor staff member has their login email in `Staff` — this **may be a personal
+Gmail, not a company-domain address**, so the email recorded in `Staff` must be the
+exact one they sign in with. This `Staff` list doubles as the **approved-email
+allow-list**: an email that isn't on it can't sign in. (The old `Toggl User ID` field
+is retired as the key.)
 
 **Live timer.**
 - One running timer per user; starting a new one auto-stops the previous.
@@ -215,7 +218,8 @@ Idempotent and safe to re-run. Keep a small sync log for troubleshooting. Secret
 - **Timezones**: UTC storage, local render; define which tz bounds "today" for totals.
 - **Connectivity**: no offline mode required (users can back-fill within 14 days), but
   the timer should tolerate a brief reconnect.
-- **Security**: Google SSO + domain allow-list; admin pre-invites users; HTTPS;
+- **Security**: Google SSO + **approved-email allow-list** (not domain-based, since
+  personal Gmail accounts are allowed); admin pre-invites users; HTTPS;
   Airtable key server-side; per-user data isolation (employees see only their own).
 - **Auditability**: never destroy start/stop history on edit; keep `updated_at`.
 
