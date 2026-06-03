@@ -1,6 +1,6 @@
-/* Timer card — the hero. Three variants: ring · stack · focus.
-   Shared: description field + tag chips. Calm & steady motion.
-   Default variant is "ring" (see App.jsx → TIMER_VARIANT). */
+/* Timer card — the hero of the home screen.
+   A single, committed design: the RING. Circular minute sweep, clock in the
+   center, calm pulse when running, with the description field + tag chips below. */
 import { Icon } from "./icons.jsx";
 import { fmtClock } from "./components.jsx";
 
@@ -35,24 +35,8 @@ function TimerMeta({ description, setDescription, tags, toggleTag, allTags }) {
   );
 }
 
-export function StartStopButton({ running, onToggle, full = true, size = "lg" }) {
-  return (
-    <button
-      className={"btn " + (running ? "btn-ghost" : "btn-primary") + " btn-" + size + (running ? " pulse-on" : "")}
-      onClick={onToggle}
-      style={{
-        width: full ? "100%" : "auto",
-        ...(running ? { background: "var(--primary-soft)", color: "var(--primary-700)" } : {}),
-      }}
-    >
-      <Icon name={running ? "stop" : "play"} size={running ? 18 : 20} />
-      {running ? "Stop timer" : "Start timer"}
-    </button>
-  );
-}
-
-/* ── Variant: RING ───────────────────────────────────────── */
-function TimerRing({ sec, running, onToggle, meta }) {
+/* ── The ring ────────────────────────────────────────────── */
+export function TimerCard({ sec, running, onToggle, metaProps }) {
   const R = 104, SW = 12, C = 2 * Math.PI * R;
   const prog = running ? (sec % 60) / 60 : 0;
   return (
@@ -84,80 +68,7 @@ function TimerRing({ sec, running, onToggle, meta }) {
         <Icon name={running ? "stop" : "play"} size={running ? 18 : 20} />
         {running ? "Stop" : "Start"}
       </button>
-      <div style={{ width: "100%" }}>{meta}</div>
+      <div style={{ width: "100%" }}><TimerMeta {...metaProps} /></div>
     </div>
   );
-}
-
-/* ── Variant: STACK ──────────────────────────────────────── */
-function TimerStack({ sec, running, onToggle, meta }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{
-        display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
-        padding: "26px 0 28px", borderRadius: "var(--r-lg)",
-        background: running ? "var(--primary-soft)" : "var(--surface-2)",
-        transition: "background .3s ease",
-      }}>
-        <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase",
-          color: running ? "var(--primary-700)" : "var(--text-3)", display: "flex", alignItems: "center", gap: 6 }}>
-          {running && <span className="chip-dot breathe" style={{ background: "var(--primary)" }} />}
-          {running ? "Tracking now" : "Timer ready"}
-        </span>
-        <ClockDisplay sec={sec} running={running} size={62} />
-      </div>
-      <StartStopButton running={running} onToggle={onToggle} />
-      {meta}
-    </div>
-  );
-}
-
-/* ── Variant: FOCUS (the card is the button) ─────────────── */
-function TimerFocus({ sec, running, onToggle, meta }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-      <button onClick={onToggle} className={running ? "pulse-on" : "hoverlift"} style={{
-        border: "none", cursor: "pointer", textAlign: "left", width: "100%",
-        borderRadius: "var(--r-xl)", padding: "30px 28px",
-        background: running ? "linear-gradient(180deg,var(--primary) 0%,var(--primary-600) 100%)" : "var(--surface-2)",
-        color: running ? "#fff" : "var(--text)",
-        display: "flex", alignItems: "center", gap: 22,
-        transition: "background .3s ease",
-        boxShadow: running ? "var(--sh-2)" : "none",
-      }}>
-        <div style={{
-          width: 76, height: 76, borderRadius: 999, flexShrink: 0,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          background: running ? "rgba(255,255,255,0.18)" : "var(--primary)",
-          color: "#fff",
-        }}>
-          <Icon name={running ? "stop" : "play"} size={32} />
-        </div>
-        <div style={{ flex: 1 }}>
-          {running ? (
-            <>
-              <div className="num" style={{ fontSize: 46, fontWeight: 800, lineHeight: 1, letterSpacing: "-0.02em" }}>
-                {(() => { const { h, m, s } = fmtClock(sec); return `${h}:${m}:${s}`; })()}
-              </div>
-              <div style={{ fontSize: 13.5, fontWeight: 600, opacity: 0.85, marginTop: 6 }}>Tap to stop · tracking</div>
-            </>
-          ) : (
-            <>
-              <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: "-0.01em" }}>Start timer</div>
-              <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text-3)", marginTop: 4 }}>One tap to begin tracking</div>
-            </>
-          )}
-        </div>
-      </button>
-      {meta}
-    </div>
-  );
-}
-
-export function TimerCard({ variant, ...props }) {
-  const meta = <TimerMeta {...props.metaProps} />;
-  const shared = { sec: props.sec, running: props.running, onToggle: props.onToggle, meta };
-  if (variant === "focus") return <TimerFocus {...shared} />;
-  if (variant === "stack") return <TimerStack {...shared} />;
-  return <TimerRing {...shared} />;
 }

@@ -1,16 +1,13 @@
 /* App shell + state + nav.
    Replaces the prototype's device-toggle / tweaks panel with real
    responsive detection (useIsDesktop) and a real sign-in gate. */
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { HG } from "./data.js";
 import { Icon } from "./icons.jsx";
 import { Avatar, useTicker, useIsDesktop, fmtClock } from "./components.jsx";
 import { SignIn, Today, Entries } from "./screens.jsx";
-import { Admin, EntrySheet } from "./admin.jsx";
-
-/* Chosen default timer style. The design ships three (ring · stack · focus);
-   "ring" is the default, "focus" is the most one-tap-friendly. */
-const TIMER_VARIANT = "ring";
+import { Admin } from "./admin.jsx";
+import { Overlays } from "./overlays.jsx";
 
 const NAV = [
   { key: "today", label: "Timer", icon: "clock" },
@@ -92,7 +89,7 @@ function PhoneShell({ app }) {
         })}
       </div>
 
-      {app.sheetOpen && <EntrySheet app={app} />}
+      <Overlays app={app} />
     </div>
   );
 }
@@ -163,7 +160,7 @@ function DesktopShell({ app }) {
         </main>
       </div>
 
-      {app.sheetOpen && <EntrySheet app={app} />}
+      <Overlays app={app} />
     </div>
   );
 }
@@ -178,9 +175,18 @@ function useApp(device) {
   const [tags, setTags] = useState(["Internal", "Design"]);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
+  const [confirm, setConfirm] = useState(null); // entry pending delete
+  const [toast, setToast] = useState(null);      // transient success message
   const elapsed = useTicker(running, startTs);
 
   const nowHM = () => new Date().toTimeString().slice(0, 5);
+
+  const toastTimer = useRef(null);
+  const showToast = (msg) => {
+    setToast(msg);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 2200);
+  };
 
   const toggleTimer = () => {
     if (running) {
@@ -194,6 +200,7 @@ function useApp(device) {
       };
       setEntries((p) => [ne, ...p]);
       setRunning(false);
+      showToast("Timer stopped · entry added");
     } else {
       setStartTs(Date.now());
       setRunning(true);
@@ -205,13 +212,23 @@ function useApp(device) {
   const openAdd = () => { setEditingEntry(null); setSheetOpen(true); };
   const openEdit = (e) => { setEditingEntry(e); setSheetOpen(true); };
   const closeSheet = () => setSheetOpen(false);
-  const deleteEntry = (e) => setEntries((p) => p.filter((x) => x.id !== e.id));
+
+  // delete now asks for confirmation first
+  const deleteEntry = (e) => setConfirm(e);
+  const cancelDelete = () => setConfirm(null);
+  const confirmDelete = () => {
+    if (confirm) setEntries((p) => p.filter((x) => x.id !== confirm.id));
+    setConfirm(null);
+    showToast("Entry deleted");
+  };
+
   const saveEntry = ({ id, date, start, end, durMin, description, tags, long }) => {
     const status = long ? "needs-review" : "synced";
     const rec = { date, start, end: end || start, description, tags, dur: durMin, status };
     if (id) setEntries((p) => p.map((x) => x.id === id ? { ...x, ...rec } : x));
     else setEntries((p) => [{ id: Date.now(), ...rec }, ...p]);
     setSheetOpen(false);
+    showToast(id ? "Changes saved" : "Entry added");
   };
 
   const weekMinutes = entries.filter((e) => HG.WEEK.includes(e.date)).reduce((s, e) => s + e.dur, 0);
@@ -223,8 +240,9 @@ function useApp(device) {
   return {
     device, screen, setScreen, entries, running, startTs, elapsed,
     description, setDescription, tags, toggleTag, toggleTimer,
-    sheetOpen, editingEntry, openAdd, openEdit, closeSheet, deleteEntry, saveEntry,
-    weekMinutes, weekBars, timerVariant: TIMER_VARIANT,
+    sheetOpen, editingEntry, openAdd, openEdit, closeSheet, saveEntry,
+    deleteEntry, confirm, cancelDelete, confirmDelete, toast,
+    weekMinutes, weekBars,
   };
 }
 

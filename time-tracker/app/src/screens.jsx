@@ -69,7 +69,6 @@ export function Today({ app }) {
 
         <div className="card" style={{ padding: wide ? 28 : 22 }}>
           <TimerCard
-            variant={app.timerVariant}
             sec={app.elapsed}
             running={app.running}
             onToggle={app.toggleTimer}
