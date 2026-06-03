@@ -1,0 +1,19 @@
+{
+  "name": "Interplay Time Tracker",
+  "short_name": "Interplay",
+  "description": "Track your hours, calmly.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ECE6DE",
+  "theme_color": "#C15F3C",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

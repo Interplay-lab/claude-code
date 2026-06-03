@@ -1,0 +1,162 @@
+/* ───────────────────────────────────────────────────────────
+   Interplay Time Tracker — design tokens + base
+   Warm terracotta/clay primary · humanist type · light mode
+   ─────────────────────────────────────────────────────────── */
+
+html, body { margin: 0; background: #ECE6DE; }
+body { font-family: "Hanken Grotesk", system-ui, sans-serif; }
+#root { min-height: 100vh; height: 100vh; }
+
+:root {
+  /* warm neutrals */
+  --bg:        #F4F0EB;   /* stage / app backdrop, warm off-white */
+  --surface:   #FFFFFF;   /* cards */
+  --surface-2: #FAF7F3;   /* subtle raised fills */
+  --surface-3: #F0EBE4;   /* inset fills, track */
+  --text:      #2B2521;   /* warm near-black */
+  --text-2:    #6E655C;   /* secondary warm gray */
+  --text-3:    #A79D92;   /* tertiary / placeholder */
+  --border:    #EBE4DA;   /* hairline */
+  --border-2:  #E0D7CB;   /* stronger hairline */
+
+  /* primary — terracotta / clay (derived shades follow --primary) */
+  --primary:      #C15F3C;
+  --primary-600:  color-mix(in oklab, var(--primary), #000 14%);
+  --primary-700:  color-mix(in oklab, var(--primary), #000 30%);
+  --primary-soft: color-mix(in oklab, var(--primary), #fff 84%);
+  --primary-ink:  #FFFFFF;
+
+  /* functional */
+  --ok:        #3F8F5E;   --ok-soft:    #E0F0E5;   /* success / synced-good */
+  --warn:      #B5811C;   --warn-soft:  #F6EBD0;   /* needs review (amber) */
+  --neutral:   #6E655C;   --neutral-soft:#EDE8E1;  /* synced */
+  --locked:    #8B8279;   --locked-soft:#E9E5DF;   /* locked / read-only */
+
+  /* shape */
+  --r-sm: 10px;
+  --r-md: 16px;
+  --r-lg: 22px;
+  --r-xl: 28px;
+
+  /* shadow — soft, warm */
+  --sh-1: 0 1px 2px rgba(60,42,28,0.05), 0 1px 3px rgba(60,42,28,0.04);
+  --sh-2: 0 2px 6px rgba(60,42,28,0.06), 0 6px 18px rgba(60,42,28,0.07);
+  --sh-3: 0 8px 24px rgba(60,42,28,0.10), 0 18px 48px rgba(60,42,28,0.10);
+
+  --font: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+.app {
+  font-family: var(--font);
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  height: 100%;
+}
+
+.num { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+
+/* ── buttons ─────────────────────────────────────────────── */
+.btn {
+  font-family: var(--font);
+  font-weight: 600;
+  border: none;
+  border-radius: var(--r-md);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: transform .12s ease, background .15s ease, box-shadow .15s ease;
+  -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
+}
+.btn:active { transform: scale(.97); }
+.btn-primary { background: var(--primary); color: var(--primary-ink); box-shadow: var(--sh-1); }
+.btn-primary:hover { background: var(--primary-600); }
+.btn-ghost { background: var(--surface-3); color: var(--text); }
+.btn-ghost:hover { background: var(--border-2); }
+.btn-quiet { background: transparent; color: var(--text-2); }
+.btn-quiet:hover { background: var(--surface-3); }
+.btn-lg { height: 56px; padding: 0 26px; font-size: 17px; }
+.btn-md { height: 46px; padding: 0 20px; font-size: 15.5px; }
+.btn-sm { height: 36px; padding: 0 14px; font-size: 14px; border-radius: var(--r-sm); }
+
+/* ── chips ───────────────────────────────────────────────── */
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 26px; padding: 0 10px; border-radius: 999px;
+  font-size: 12.5px; font-weight: 600; white-space: nowrap;
+}
+.chip-dot { width: 7px; height: 7px; border-radius: 999px; background: currentColor; }
+.chip-tag { background: var(--surface-3); color: var(--text-2); font-weight: 500; }
+.chip-running { background: var(--primary-soft); color: var(--primary-700); }
+.chip-synced  { background: var(--neutral-soft); color: var(--neutral); }
+.chip-locked  { background: var(--locked-soft); color: var(--locked); }
+.chip-review  { background: var(--warn-soft); color: var(--warn); }
+.chip-ok      { background: var(--ok-soft); color: var(--ok); }
+
+/* selectable tag chip (forms) */
+.tagsel {
+  height: 34px; padding: 0 14px; border-radius: 999px;
+  font-size: 14px; font-weight: 500; cursor: pointer;
+  background: var(--surface-3); color: var(--text-2);
+  border: 1.5px solid transparent; transition: all .14s ease;
+}
+.tagsel:hover { background: var(--border-2); }
+.tagsel.on { background: var(--primary-soft); color: var(--primary-700); border-color: var(--primary); }
+
+/* ── cards / inputs ──────────────────────────────────────── */
+.card {
+  background: var(--surface); border-radius: var(--r-lg);
+  box-shadow: var(--sh-1); border: 1px solid var(--border);
+}
+.input {
+  font-family: var(--font); font-size: 16px; color: var(--text);
+  background: var(--surface); border: 1.5px solid var(--border-2);
+  border-radius: var(--r-md); padding: 13px 14px; width: 100%;
+  transition: border-color .14s ease, box-shadow .14s ease;
+}
+.input::placeholder { color: var(--text-3); }
+.input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+.field-label { font-size: 13px; font-weight: 600; color: var(--text-2); margin-bottom: 7px; display: block; }
+
+/* ── timer pulse (calm & steady) ─────────────────────────── */
+@keyframes calmpulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 30%, transparent); }
+  50%      { box-shadow: 0 0 0 14px color-mix(in srgb, var(--primary) 0%, transparent); }
+}
+@keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sheetup { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes softbreathe {
+  0%, 100% { opacity: .55; }
+  50%      { opacity: 1; }
+}
+@keyframes ringsweep { to { transform: rotate(360deg); } }
+.pulse-on { animation: calmpulse 2.4s ease-in-out infinite; }
+.breathe  { animation: softbreathe 2.4s ease-in-out infinite; }
+
+/* running banner */
+.run-banner {
+  background: linear-gradient(180deg, var(--primary) 0%, var(--primary-600) 100%);
+  color: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-on, .breathe { animation: none !important; }
+}
+.rm .pulse-on, .rm .breathe { animation: none !important; }
+
+/* scrollbars in frames */
+.scroll-area::-webkit-scrollbar { width: 8px; height: 8px; }
+.scroll-area::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 999px; }
+.scroll-area::-webkit-scrollbar-track { background: transparent; }
+
+/* hide number input spinners */
+input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+.hoverlift { transition: transform .15s ease, box-shadow .15s ease; }
+.hoverlift:hover { transform: translateY(-1px); box-shadow: var(--sh-2); }
