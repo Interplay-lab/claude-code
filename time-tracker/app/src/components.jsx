@@ -8,10 +8,11 @@ export function useTicker(running, startTs) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     if (!running) return;
+    setNow(Date.now()); // snap to the current time the instant tracking starts
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, [running]);
-  return running ? Math.floor((now - startTs) / 1000) : 0;
+  return running ? Math.max(0, Math.floor((now - startTs) / 1000)) : 0;
 }
 
 export function fmtClock(sec) {
