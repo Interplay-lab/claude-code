@@ -186,9 +186,13 @@ function useApp(device, user, ctx) {
   const live = ctx.live;
   const staffId = ctx.staffId;
 
-  const todayISO = live ? isoOf(new Date()) : "2026-06-03";
-  const yISO     = live ? isoOf(addDays(new Date(), -1)) : "2026-06-02";
-  const week     = live ? weekFrom(mondayOf(new Date())) : HG.WEEK;
+  const [weekOffset, setWeekOffset] = useState(0); // 0 = current week, -1 = last week, …
+  const anchor = live ? new Date() : new Date("2026-06-03T12:00:00");
+  const todayISO = isoOf(anchor);
+  const yISO     = isoOf(addDays(anchor, -1));
+  const week     = weekFrom(addDays(mondayOf(anchor), weekOffset * 7));
+  const prevWeek = () => setWeekOffset((o) => o - 1);
+  const nextWeek = () => setWeekOffset((o) => Math.min(0, o + 1)); // don't page into the future
 
   const [screen, setScreen] = useState("today");
   const [entries, setEntries] = useState(isLive ? [] : HG.entries);
@@ -321,6 +325,7 @@ function useApp(device, user, ctx) {
     sheetOpen, editingEntry, openAdd, openEdit, closeSheet, saveEntry,
     deleteEntry, confirm, cancelDelete, confirmDelete, toast,
     weekMinutes, weekBars, todayISO, week, weekLabel: weekLabelOf(week), relDay,
+    weekOffset, prevWeek, nextWeek,
     team: live ? [] : HG.team, teamWeek: live ? 0 : HG.teamWeek,
   };
 }

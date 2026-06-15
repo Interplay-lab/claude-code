@@ -161,12 +161,12 @@ export function WeekBars({ bars, height = 96, accent = "var(--primary)" }) {
 }
 
 /* ── weekly total summary bar ────────────────────────────── */
-export function WeekTotal({ minutes, target = 2400, compact = false }) {
+export function WeekTotal({ minutes, target = 2400, compact = false, label = "This week" }) {
   const pct = Math.min(100, (minutes / target) * 100);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: compact ? 8 : 10 }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-2)", whiteSpace: "nowrap" }}>This week</span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-2)", whiteSpace: "nowrap" }}>{label}</span>
         <span className="num" style={{ fontSize: compact ? 17 : 19, fontWeight: 800, color: "var(--text)", whiteSpace: "nowrap" }}>
           {HG.hm(minutes)}
           <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-3)" }}> / {target / 60}h</span>

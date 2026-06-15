@@ -131,26 +131,34 @@ export function Today({ app }) {
 /* ── MY ENTRIES ──────────────────────────────────────────── */
 export function Entries({ app }) {
   const wide = app.device === "desktop";
-  const groups = HG.grouped(app.entries);
+  const groups = HG.grouped(app.entries.filter((e) => app.week.includes(e.date)));
+  const o = app.weekOffset;
+  const relLabel = o === 0 ? "This week" : o === -1 ? "Last week" : `${-o} weeks ago`;
+  const atCurrent = o >= 0;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       {/* weekly header */}
       <div className="card" style={{ padding: wide ? "22px 24px" : 18 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button className="btn btn-quiet btn-sm" style={{ padding: "0 7px", height: 32 }}><Icon name="chevL" size={18} /></button>
+            <button className="btn btn-quiet btn-sm" style={{ padding: "0 7px", height: 32 }} onClick={app.prevWeek} aria-label="Previous week"><Icon name="chevL" size={18} /></button>
             <div style={{ fontSize: 15, fontWeight: 700 }}>{app.weekLabel}</div>
-            <button className="btn btn-quiet btn-sm" style={{ padding: "0 7px", height: 32 }}><Icon name="chevR" size={18} /></button>
+            <button className="btn btn-quiet btn-sm" style={{ padding: "0 7px", height: 32, opacity: atCurrent ? 0.35 : 1, cursor: atCurrent ? "default" : "pointer" }} onClick={atCurrent ? undefined : app.nextWeek} aria-label="Next week"><Icon name="chevR" size={18} /></button>
           </div>
-          <span className="chip chip-tag" style={{ height: 28 }}>This week</span>
+          <span className="chip chip-tag" style={{ height: 28 }}>{relLabel}</span>
         </div>
         <div style={{ display: wide ? "grid" : "block", gridTemplateColumns: "1fr 1.3fr", gap: 28, alignItems: "center" }}>
-          <WeekTotal minutes={app.weekMinutes} />
+          <WeekTotal minutes={app.weekMinutes} label={relLabel} />
           <div style={{ marginTop: wide ? 0 : 18 }}><WeekBars bars={app.weekBars} /></div>
         </div>
       </div>
 
       {/* grouped days */}
+      {groups.length === 0 && (
+        <div className="card" style={{ padding: "32px 20px", textAlign: "center", color: "var(--text-3)", fontSize: 14 }}>
+          No entries this week.
+        </div>
+      )}
       {groups.map((g) => (
         <div key={g.date} className="card" style={{ padding: "6px 20px 8px" }}>
           <div style={{
