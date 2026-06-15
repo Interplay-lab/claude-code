@@ -7,6 +7,7 @@ import { Icon } from "./icons.jsx";
 import { Avatar, useTicker, useIsDesktop, fmtClock } from "./components.jsx";
 import { SignIn, Today, Entries } from "./screens.jsx";
 import { Admin } from "./admin.jsx";
+import { Balance } from "./balance.jsx";
 import { Overlays } from "./overlays.jsx";
 import { isLive, signInWithGoogle, signOut, getSession, onAuthChange } from "./lib/supabase.js";
 import { getStaffByEmail, listMyEntries, getRunning, startTimer, stopTimer, addManual, updateEntry, deleteEntry as dbDelete } from "./lib/db.js";
@@ -14,9 +15,10 @@ import { getStaffByEmail, listMyEntries, getRunning, startTimer, stopTimer, addM
 const NAV = [
   { key: "today", label: "Timer", icon: "clock" },
   { key: "entries", label: "Entries", icon: "list" },
+  { key: "balance", label: "Bucks", icon: "tag" },
   { key: "admin", label: "Admin", icon: "users" },
 ];
-const TITLES = { today: null, entries: "My entries", admin: "Team overview" };
+const TITLES = { today: null, entries: "My entries", balance: "Interplay Bucks", admin: "Team overview" };
 
 /* ── Running banner (persistent app-wide) ────────────────── */
 function RunBanner({ app, wide }) {
@@ -68,6 +70,7 @@ function PhoneShell({ app }) {
       <main className="scroll-area" style={{ flex: 1, overflow: "auto", padding: "10px 16px 18px" }}>
         {app.screen === "today" && <Today app={app} />}
         {app.screen === "entries" && <Entries app={app} />}
+        {app.screen === "balance" && <Balance app={app} />}
         {app.screen === "admin" && <Admin app={app} />}
       </main>
 
@@ -148,7 +151,7 @@ function DesktopShell({ app }) {
           padding: "16px 32px", borderBottom: "1px solid var(--border)", background: "var(--surface)", flexShrink: 0,
         }}>
           <h1 style={{ fontSize: 19, fontWeight: 800, letterSpacing: "-0.01em", margin: 0, whiteSpace: "nowrap" }}>
-            {app.screen === "admin" ? "Team overview" : app.screen === "entries" ? "My entries" : "Today"}
+            {app.screen === "admin" ? "Team overview" : app.screen === "entries" ? "My entries" : app.screen === "balance" ? "Interplay Bucks" : "Today"}
           </h1>
           <button className="btn btn-primary btn-md" onClick={app.openAdd}><Icon name="plus" size={18} /> Add entry</button>
         </div>
@@ -157,6 +160,7 @@ function DesktopShell({ app }) {
           <div style={{ maxWidth: app.screen === "admin" ? 1000 : 880, margin: "0 auto", padding: "28px 32px 52px" }}>
             {app.screen === "today" && <Today app={app} />}
             {app.screen === "entries" && <Entries app={app} />}
+            {app.screen === "balance" && <Balance app={app} />}
             {app.screen === "admin" && <Admin app={app} />}
           </div>
         </main>
