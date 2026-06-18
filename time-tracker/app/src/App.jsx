@@ -8,6 +8,7 @@ import { Avatar, useTicker, useIsDesktop, fmtClock } from "./components.jsx";
 import { SignIn, Today, Entries } from "./screens.jsx";
 import { Admin } from "./admin.jsx";
 import { Balance } from "./balance.jsx";
+import { PoolAdmin } from "./pool-admin.jsx";
 import { Overlays } from "./overlays.jsx";
 import { isLive, signInWithGoogle, signOut, getSession, onAuthChange } from "./lib/supabase.js";
 import { getStaffByEmail, listMyEntries, getRunning, startTimer, stopTimer, addManual, updateEntry, deleteEntry as dbDelete } from "./lib/db.js";
@@ -17,8 +18,10 @@ const NAV = [
   { key: "entries", label: "Entries", icon: "list" },
   { key: "balance", label: "Bucks", icon: "tag" },
   { key: "admin", label: "Admin", icon: "users" },
+  { key: "pool", label: "Pool", icon: "checkCircle", adminOnly: true },
 ];
-const TITLES = { today: null, entries: "My entries", balance: "Interplay Bucks", admin: "Team overview" };
+const navFor = (app) => NAV.filter((n) => !n.adminOnly || app.user.isAdmin);
+const TITLES = { today: null, entries: "My entries", balance: "Interplay Bucks", admin: "Team overview", pool: "Code pool" };
 
 /* ── Running banner (persistent app-wide) ────────────────── */
 function RunBanner({ app, wide }) {
@@ -72,6 +75,7 @@ function PhoneShell({ app }) {
         {app.screen === "entries" && <Entries app={app} />}
         {app.screen === "balance" && <Balance app={app} />}
         {app.screen === "admin" && <Admin app={app} />}
+        {app.screen === "pool" && app.user.isAdmin && <PoolAdmin app={app} />}
       </main>
 
       {/* bottom nav */}
@@ -79,7 +83,7 @@ function PhoneShell({ app }) {
         flexShrink: 0, display: "flex", background: "var(--surface)",
         borderTop: "1px solid var(--border)", padding: "8px 12px max(18px, env(safe-area-inset-bottom))",
       }}>
-        {NAV.map((n) => {
+        {navFor(app).map((n) => {
           const on = app.screen === n.key;
           return (
             <button key={n.key} onClick={() => app.setScreen(n.key)} style={{
@@ -118,7 +122,7 @@ function DesktopShell({ app }) {
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-          {NAV.map((n) => {
+          {navFor(app).map((n) => {
             const on = app.screen === n.key;
             return (
               <button key={n.key} onClick={() => app.setScreen(n.key)} style={{
@@ -151,7 +155,7 @@ function DesktopShell({ app }) {
           padding: "16px 32px", borderBottom: "1px solid var(--border)", background: "var(--surface)", flexShrink: 0,
         }}>
           <h1 style={{ fontSize: 19, fontWeight: 800, letterSpacing: "-0.01em", margin: 0, whiteSpace: "nowrap" }}>
-            {app.screen === "admin" ? "Team overview" : app.screen === "entries" ? "My entries" : app.screen === "balance" ? "Interplay Bucks" : "Today"}
+            {app.screen === "admin" ? "Team overview" : app.screen === "entries" ? "My entries" : app.screen === "balance" ? "Interplay Bucks" : app.screen === "pool" ? "Code pool" : "Today"}
           </h1>
           <button className="btn btn-primary btn-md" onClick={app.openAdd}><Icon name="plus" size={18} /> Add entry</button>
         </div>
@@ -162,6 +166,7 @@ function DesktopShell({ app }) {
             {app.screen === "entries" && <Entries app={app} />}
             {app.screen === "balance" && <Balance app={app} />}
             {app.screen === "admin" && <Admin app={app} />}
+            {app.screen === "pool" && app.user.isAdmin && <PoolAdmin app={app} />}
           </div>
         </main>
       </div>
@@ -388,6 +393,7 @@ export default function App() {
     firstName: fullName.split(/\s+/)[0],
     initials: initialsOf(fullName),
     role: staff ? (staff.role === "admin" ? "Admin" : "Team member") : "Designer",
+    isAdmin: !!staff && staff.role === "admin",
   };
 
   const live = isLive && !!staff;

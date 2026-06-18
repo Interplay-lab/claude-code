@@ -1,32 +1,14 @@
-// POST /api/redeem-ib — staff redeems IB → single-use Ticket Tailor voucher.
-// Auth: Authorization: Bearer <Supabase access token>. Body: { amount, workshop_note? }.
-// Balance is recomputed server-side; amount is validated (>0, ≤ balance, ≤ $1000).
-import { getSessionUser, findStaffByEmail, fetchLedgerForStaff, computeBalance, airtable, initialsOf, L, S } from "../server/ib.js";
+// POST /api/redeem-ib — staff redeems IB by drawing a pre-staged TT discount
+// code from the pool (Plan B). No Ticket Tailor API call at redeem time.
+// Auth: Authorization: Bearer <Supabase access token>. Body: { denomination_cents }.
+import {
+  getSessionUser, findStaffByEmail, fetchLedgerForStaff, computeBalance,
+  airtable, supabaseAdmin, getSupabaseStaff, sendResend, DENOMS, L, S,
+} from "../server/ib.js";
 
 const LEDGER_TABLE = process.env.AIRTABLE_IB_LEDGER_TABLE;
-const TT_API_KEY = process.env.TT_API_KEY;
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const RESEND_FROM = process.env.RESEND_FROM;
 const TYPE_REDEEMED = "Redeemed - Gift Card (TicketTailor)";
-const MAX_REDEEM = 1000;
-
-function rand6() {
-  const c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no ambiguous chars
-  let s = "";
-  for (let i = 0; i < 6; i++) s += c[Math.floor(Math.random() * c.length)];
-  return s;
-}
-
-// (voucher creation is inlined in the handler below, with debug logging)
-
-async function sendEmail(to, subject, html) {
-  if (!RESEND_API_KEY || !RESEND_FROM) return;
-  await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: RESEND_FROM, to: [to], subject, html }),
-  });
-}
+const money = (cents) => `$${(cents / 100).toFixed(2)}`;
 
 export default async function handler(req, res) {
   if (req.method !== "POST") { res.status(405).json({ error: "Method not allowed" }); return; }
@@ -34,105 +16,69 @@ export default async function handler(req, res) {
     const user = await getSessionUser(req);
     if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-    const staff = await findStaffByEmail(user.email);
+    const staff = await findStaffByEmail(user.email);          // Airtable record (for ledger)
     if (!staff) { res.status(400).json({ error: "No staff record found, contact admin." }); return; }
+    const supaStaff = await getSupabaseStaff(user.email);      // Supabase staff (for pool FK)
 
     let body = req.body;
     if (typeof body === "string") { try { body = JSON.parse(body); } catch { body = {}; } }
     body = body || {};
-    const amount = Math.round(Number(body.amount) * 100) / 100;
-    const note = String(body.workshop_note || "").slice(0, 200);
-
-    if (!(amount > 0)) { res.status(400).json({ error: "Amount must be greater than 0." }); return; }
-    if (amount > MAX_REDEEM) { res.status(400).json({ error: `Amount exceeds the $${MAX_REDEEM} limit.` }); return; }
+    const denom = Number(body.denomination_cents);
+    if (!DENOMS.includes(denom)) { res.status(400).json({ error: "Invalid denomination." }); return; }
+    const dollars = denom / 100;
 
     const balance = computeBalance(await fetchLedgerForStaff(staff.id));
-    if (amount > balance) { res.status(400).json({ error: `Amount exceeds your balance of $${balance.toFixed(2)}.` }); return; }
+    if (balance < dollars) { res.status(400).json({ error: `That's more than your balance of $${balance.toFixed(2)}.` }); return; }
 
-    const name = staff.fields?.[S.name] || "";
-    const code = `IB-${initialsOf(name)}-${rand6()}`;
-    const now = new Date();
-    const expires = new Date(now); expires.setMonth(expires.getMonth() + 12);
-    const expiryUnix = Math.floor((Date.now() + 365 * 24 * 60 * 60 * 1000) / 1000); // TT wants seconds since epoch
+    // Atomically claim one available code of this denomination.
+    const admin = supabaseAdmin();
+    const { data: claimed, error: claimErr } = await admin.rpc("claim_ib_code", {
+      p_denomination: denom, p_staff: supaStaff?.id || null,
+    });
+    if (claimErr) { console.log("claim_ib_code error:", claimErr.message); res.status(500).json({ error: "Could not claim a code." }); return; }
+    const row = Array.isArray(claimed) ? claimed[0] : claimed;
+    if (!row || !row.code) {
+      res.status(409).json({ error: `No ${money(denom)} codes currently in stock. Please choose a different denomination or contact admin.` });
+      return;
+    }
+    const code = row.code;
+    const expiresAt = row.expires_at || null;
 
-    // TT DISCOUNT CODES are the right primitive for programmatic redemption
-    // codes (vouchers = storefront gift-card sales). DEBUG: full logging.
-    const ttAuth = "Basic " + Buffer.from(TT_API_KEY + ":").toString("base64");
-    const TT_URL = "https://api.tickettailor.com/v1/discount_codes";
-    const payload = {
-      code, name: `Interplay Bucks Redemption — ${name} — $${amount}`,
-      value: String(Math.round(amount * 100)),              // cents
-      type: "fixed_amount", discount_type: "fixed_amount",  // cover both field names
-      expiry: String(expiryUnix), max_redemptions: "1",
-      // apply to all events — field name uncertain (docs 403 us); TT ignores
-      // unknown params, so send candidates. If TT instead needs explicit
-      // event_ids, the logged response will tell us and we'll assign them.
-      applies_to_all_events: "true",
-      apply_to_all_events: "true",
-      usable_on_any_event: "true",
-      applicable_to_all_events: "true",
-      valid_for_all_events: "true",
-      all_events: "true",
-    };
-    console.log("TT request:", "POST", TT_URL, "body:", new URLSearchParams(payload).toString());
-    let ttRes;
+    // Record the redemption in the Airtable ledger (negative). If this fails,
+    // release the claimed code so it isn't lost.
     try {
-      ttRes = await fetch(TT_URL, {
-        method: "POST",
-        headers: { Authorization: ttAuth, "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams(payload).toString(),
+      await airtable("POST", encodeURIComponent(LEDGER_TABLE), {
+        typecast: true,
+        records: [{ fields: {
+          [L.entryLabel]: `IB Redemption — ${code}`,
+          [L.person]: [staff.id], [L.date]: new Date().toISOString().slice(0, 10),
+          [L.amount]: -dollars, [L.type]: TYPE_REDEEMED, [L.ttRef]: code,
+          [L.notes]: `Redeemed via Hourglass (code pool). ${money(denom)} single-use.${expiresAt ? ` Expires ${expiresAt}.` : ""}`,
+        } }],
       });
     } catch (e) {
-      console.log("TT fetch error:", String(e));
-      res.status(400).json({ error: "Ticket Tailor request failed", tt_status: 0, tt_body: String(e?.message || e) });
+      await admin.from("ib_code_pool").update({ status: "available", assigned_to_staff_id: null, assigned_at: null }).eq("code", code);
+      console.log("ledger write failed, released code:", code, String(e));
+      res.status(502).json({ error: "Could not record the redemption — no code was issued. Please try again." });
       return;
     }
-    const ttText = await ttRes.text().catch(() => "");
-    console.log("TT voucher response:", ttRes.status, ttText);
-    if (!ttRes.ok) {
-      res.status(400).json({ error: "Ticket Tailor rejected the discount code", tt_status: ttRes.status, tt_body: ttText });
-      return;
-    }
-    // Never fabricate: only proceed with a real code read back from TT's response.
-    let finalCode = "";
-    try {
-      const v = JSON.parse(ttText);
-      finalCode = v.code || v.data?.code || (Array.isArray(v.data) ? v.data[0]?.code : "") || "";
-    } catch { finalCode = ""; }
-    if (!finalCode) {
-      console.log("TT returned 200 but no readable voucher code — not issuing.");
-      res.status(502).json({ error: "Ticket Tailor did not return a usable code — nothing was issued.", tt_status: ttRes.status, tt_body: ttText });
-      return;
-    }
-    console.log("TT issued code:", finalCode);
 
-    // 2) ledger row (negative)
-    await airtable("POST", encodeURIComponent(LEDGER_TABLE), {
-      typecast: true,
-      records: [{ fields: {
-        [L.entryLabel]: `IB Redemption — ${finalCode}`,
-        [L.person]: [staff.id], [L.date]: now.toISOString().slice(0, 10),
-        [L.amount]: -amount, [L.type]: TYPE_REDEEMED, [L.ttRef]: finalCode,
-        [L.notes]: `Redeemed via Hourglass dashboard. Code expires ${expires.toISOString().slice(0, 10)}. Workshop note: ${note || "n/a"}`,
-      } }],
-    });
-
-    // 3) email (best-effort)
-    const exp = expires.toISOString().slice(0, 10);
-    await sendEmail(
+    // Email the code (best-effort).
+    await sendResend(
       user.email,
-      `Your Interplay Bucks code — ${finalCode} ($${amount.toFixed(2)})`,
-      `<div style="font-family:sans-serif;line-height:1.5">
-        <h2>Your Interplay Bucks gift code</h2>
-        <p>Amount: <strong>$${amount.toFixed(2)}</strong><br/>Code: <strong>${finalCode}</strong><br/>Expires: <strong>${exp}</strong></p>
-        <p>Paste this code at checkout for any Interplay workshop to apply the discount.</p>
+      `Your Interplay Bucks code: ${code} (${money(denom)})`,
+      `<div style="font-family:sans-serif;line-height:1.6">
+        <h2>Your Interplay Bucks code: ${code}</h2>
+        <p><strong>Value: ${money(denom)}</strong></p>
+        <p>Use this at any Interplay event checkout. Single-use only.</p>
+        ${expiresAt ? `<p>Expires: <strong>${expiresAt}</strong></p>` : ""}
         <p style="color:#6E655C">Questions? Reply to this email or contact your admin.</p>
       </div>`
     ).catch(() => {});
 
     res.status(200).json({
-      code: finalCode, amount, expires_at: expires.toISOString(),
-      new_balance: Math.round((balance - amount) * 100) / 100,
+      code, amount: dollars, denomination_cents: denom, expires_at: expiresAt,
+      new_balance: Math.round((balance - dollars) * 100) / 100,
     });
   } catch (e) {
     res.status(500).json({ error: String(e.message || e) });

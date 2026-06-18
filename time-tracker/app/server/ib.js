@@ -22,6 +22,53 @@ const STAFF_TABLE = process.env.AIRTABLE_STAFF_TABLE;
 const LEDGER_TABLE = process.env.AIRTABLE_IB_LEDGER_TABLE;
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const RESEND_FROM = process.env.RESEND_FROM;
+
+// Allowed redemption denominations (cents): $5 / $10 / $25 / $50 / $100
+export const DENOMS = [500, 1000, 2500, 5000, 10000];
+
+// Service-role Supabase client (server-only; bypasses RLS for the pool table).
+export function supabaseAdmin() {
+  return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+}
+
+// The Supabase staff row for an email (id + role) — distinct from the Airtable Staff record.
+export async function getSupabaseStaff(email) {
+  const { data } = await supabaseAdmin().from("staff").select("id, role, full_name, email").ilike("email", email).maybeSingle();
+  return data || null;
+}
+
+export async function sendResend(to, subject, html) {
+  if (!RESEND_API_KEY || !RESEND_FROM || !to || (Array.isArray(to) && !to.length)) return;
+  await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from: RESEND_FROM, to: Array.isArray(to) ? to : [to], subject, html }),
+  });
+}
+
+// Low-stock check: emails admins if any denomination has < 10 codes available.
+export async function runPoolStockCheck() {
+  const admin = supabaseAdmin();
+  const { data: rows } = await admin.rpc("ib_pool_stock");
+  const stock = {};
+  for (const d of DENOMS) stock[d] = 0;
+  for (const r of rows || []) stock[r.denomination_cents] = Number(r.available);
+  const low = DENOMS.filter((d) => stock[d] < 10).map((d) => ({ denomination_cents: d, available: stock[d] }));
+  if (low.length) {
+    const { data: admins } = await admin.from("staff").select("email").eq("role", "admin").eq("active", true);
+    const to = (admins || []).map((a) => a.email).filter(Boolean);
+    const all = DENOMS.map((d) => `$${d / 100}: ${stock[d]} available`).join("<br/>");
+    await sendResend(to, "Interplay Bucks code pool is running low",
+      `<div style="font-family:sans-serif;line-height:1.5"><h2>IB code pool — low stock</h2>
+       <p>${low.map((l) => `<strong>$${l.denomination_cents / 100}</strong> has only ${l.available} left`).join("<br/>")}</p>
+       <p>Current stock:<br/>${all}</p>
+       <p>Refill: create new single-use codes in Ticket Tailor, then import them in Hourglass → <strong>Pool</strong>.</p></div>`);
+  }
+  return { stock, low };
+}
 
 export async function airtable(method, path, body) {
   const res = await fetch(`https://api.airtable.com/v0/${BASE}/${path}`, {

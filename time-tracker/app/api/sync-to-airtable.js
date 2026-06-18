@@ -8,6 +8,7 @@
 // never duplicate. Reproduces the field contract documented in DESIGN.md.
 // ────────────────────────────────────────────────────────────────────
 import { createClient } from "@supabase/supabase-js";
+import { runPoolStockCheck } from "../server/ib.js";
 
 // Airtable Time Entries field IDs
 const F = {
@@ -173,6 +174,11 @@ export default async function handler(req, res) {
 
   try {
     const summary = await runSync();
+    // Mondays: also run the IB code-pool low-stock check (folded in here because
+    // Vercel Hobby caps at 2 dedicated cron jobs). Best-effort.
+    if (new Date().getUTCDay() === 1) {
+      try { summary.pool_stock = await runPoolStockCheck(); } catch (e) { summary.pool_stock_error = String(e.message || e); }
+    }
     res.status(200).json(summary);
   } catch (e) {
     res.status(500).json({ error: String(e.message || e) });
