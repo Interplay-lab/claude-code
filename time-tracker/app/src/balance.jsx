@@ -83,18 +83,19 @@ function RedeemModal({ app, balance, onClose, onDone }) {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [ttBody, setTtBody] = useState("");
   const [done, setDone] = useState(null);
 
   const amt = Math.round(Number(amount) * 100) / 100;
   const valid = amt > 0 && amt <= balance && amt <= 1000;
 
   const submit = async () => {
-    setErr(""); setBusy(true);
+    setErr(""); setTtBody(""); setBusy(true);
     try {
       const r = await authedFetch("/api/redeem-ib", { method: "POST", body: JSON.stringify({ amount: amt, workshop_note: note }) });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error || "Redemption failed");
-      setDone(j);
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { setErr(j.error || "Redemption failed"); setTtBody(j.tt_body || ""); }
+      else setDone(j);
     } catch (e) { setErr(String(e.message || e)); }
     setBusy(false);
   };
@@ -136,6 +137,7 @@ function RedeemModal({ app, balance, onClose, onDone }) {
                 <input className="input" placeholder="e.g. June improv intensive" value={note} onChange={(e) => setNote(e.target.value)} />
               </div>
               {err && <div style={{ fontSize: 13.5, color: "var(--warn)", fontWeight: 600 }}>{err}</div>}
+              {ttBody && <pre style={{ fontSize: 11.5, color: "var(--text-2)", background: "var(--surface-3)", padding: 10, borderRadius: 8, overflow: "auto", maxHeight: 160, whiteSpace: "pre-wrap", margin: 0 }}>{ttBody}</pre>}
               <button className="btn btn-primary btn-lg" disabled={!valid || busy} onClick={submit}
                 style={{ opacity: valid && !busy ? 1 : 0.5, cursor: valid && !busy ? "pointer" : "default" }}>
                 {busy ? "Generating…" : `Generate code for ${money(amt > 0 ? amt : 0)}`}

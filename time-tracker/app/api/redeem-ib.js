@@ -17,22 +17,7 @@ function rand6() {
   return s;
 }
 
-async function createVoucher({ code, valueCents, validFrom, validUntil }) {
-  const res = await fetch("https://api.tickettailor.com/v1/vouchers", {
-    method: "POST",
-    headers: {
-      Authorization: "Basic " + Buffer.from(TT_API_KEY + ":").toString("base64"),
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      code, type: "fixed_amount", value: String(valueCents),
-      valid_from: validFrom, valid_until: validUntil, max_redemptions: "1",
-    }).toString(),
-  });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json?.error?.message || json?.message || `TT ${res.status}: ${JSON.stringify(json)}`);
-  return json;
-}
+// (voucher creation is inlined in the handler below, with debug logging)
 
 async function sendEmail(to, subject, html) {
   if (!RESEND_API_KEY || !RESEND_FROM) return;
@@ -69,11 +54,31 @@ export default async function handler(req, res) {
     const now = new Date();
     const expires = new Date(now.getTime() + 14 * 24 * 3600 * 1000);
 
-    // 1) voucher first — if this fails, no ledger row is written
+    // 1) voucher first — if this fails, no ledger row / email. (DEBUG: verbose logging)
+    const payload = {
+      code, type: "fixed_amount", value: String(Math.round(amount * 100)),
+      valid_from: now.toISOString(), valid_until: expires.toISOString(), max_redemptions: "1",
+    };
+    console.log("TT request body:", payload);
+    let ttRes;
     try {
-      await createVoucher({ code, valueCents: Math.round(amount * 100), validFrom: now.toISOString(), validUntil: expires.toISOString() });
+      ttRes = await fetch("https://api.tickettailor.com/v1/vouchers", {
+        method: "POST",
+        headers: {
+          Authorization: "Basic " + Buffer.from(TT_API_KEY + ":").toString("base64"),
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams(payload).toString(),
+      });
     } catch (e) {
-      res.status(502).json({ error: `Could not create gift-card code: ${e.message || e}` });
+      console.log("TT fetch error:", String(e));
+      res.status(400).json({ error: "Ticket Tailor rejected the voucher", tt_status: 0, tt_body: String(e?.message || e) });
+      return;
+    }
+    if (!ttRes.ok) {
+      const ttBody = await ttRes.text().catch(() => "");
+      console.log("TT response:", ttRes.status, ttBody);
+      res.status(400).json({ error: "Ticket Tailor rejected the voucher", tt_status: ttRes.status, tt_body: ttBody });
       return;
     }
 
