@@ -52,12 +52,13 @@ export default async function handler(req, res) {
     const name = staff.fields?.[S.name] || "";
     const code = `IB-${initialsOf(name)}-${rand6()}`;
     const now = new Date();
-    const expires = new Date(now.getTime() + 14 * 24 * 3600 * 1000);
+    const expires = new Date(now); expires.setMonth(expires.getMonth() + 12);
+    const expiryYMD = expires.toISOString().slice(0, 10);
 
     // 1) voucher first — if this fails, no ledger row / email. (DEBUG: verbose logging)
     const payload = {
       code, type: "fixed_amount", value: String(Math.round(amount * 100)),
-      valid_from: now.toISOString(), valid_until: expires.toISOString(), max_redemptions: "1",
+      expiry: expiryYMD, max_redemptions: "1",
     };
     console.log("TT request body:", payload);
     let ttRes;
