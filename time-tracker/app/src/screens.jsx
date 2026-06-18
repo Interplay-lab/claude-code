@@ -179,7 +179,7 @@ export function Entries({ app }) {
         </div>
       ))}
       <div style={{ textAlign: "center", fontSize: 12.5, color: "var(--text-3)", padding: "4px 0 8px" }}>
-        Entries older than 14 days are locked for payroll.
+        Entries lock once their pay period is finalized for payroll.
       </div>
     </div>
   );

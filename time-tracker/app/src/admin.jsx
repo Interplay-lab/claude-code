@@ -132,7 +132,7 @@ export function Admin({ app }) {
 /* ── ADD / EDIT ENTRY SHEET ──────────────────────────────── */
 export function EntrySheet({ app }) {
   const editing = app.editingEntry;
-  const [date, setDate] = useState(editing ? editing.date : "2026-06-03");
+  const [date, setDate] = useState(editing ? editing.date : (app.todayISO || new Date().toISOString().slice(0, 10)));
   const [mode, setMode] = useState("range"); // range | duration
   const [start, setStart] = useState(editing ? editing.start : "09:00");
   const [end, setEnd] = useState(editing ? editing.end : "10:00");

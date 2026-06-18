@@ -313,13 +313,16 @@ function useApp(device, user, ctx) {
           const c = await addManual(staffId, { date, start, end, durMin, description, tags });
           setEntries((p) => [c, ...p]);
         }
-      } catch { /* ignore */ }
-    } else {
-      const status = long ? "needs-review" : "synced";
-      const rec = { date, start, end: end || start, description, tags, dur: durMin, status };
-      if (id) setEntries((p) => p.map((x) => x.id === id ? { ...x, ...rec } : x));
-      else setEntries((p) => [{ id: Date.now(), ...rec }, ...p]);
+        showToast(id ? "Changes saved" : "Entry added");
+      } catch (e) {
+        showToast(id ? "Couldn't save changes" : "Couldn't add entry");
+      }
+      return;
     }
+    const status = long ? "needs-review" : "synced";
+    const rec = { date, start, end: end || start, description, tags, dur: durMin, status };
+    if (id) setEntries((p) => p.map((x) => x.id === id ? { ...x, ...rec } : x));
+    else setEntries((p) => [{ id: Date.now(), ...rec }, ...p]);
     showToast(id ? "Changes saved" : "Entry added");
   };
 
