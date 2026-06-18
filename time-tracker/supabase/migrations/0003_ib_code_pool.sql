@@ -1,20 +1,24 @@
--- Plan B: pre-staged Ticket Tailor discount-code pool.
--- Briana imports single-use codes (made in TT) once per quarter; Hourglass
--- draws from the pool on each redemption — no TT API at redeem time.
+-- Plan B: pre-staged Ticket Tailor discount-code pool (per IB_POOL_REDEMPTION_SPEC.md).
+-- Briana imports single-use codes (made in TT) each quarter; Hourglass draws
+-- from the pool on redemption — no TT API at redeem time.
 
 create table public.ib_code_pool (
   code                 text primary key,
   denomination_cents   integer not null,
-  status               text not null default 'available' check (status in ('available','assigned','used')),
+  status               text not null default 'available'
+                         check (status in ('available','assigned','used','expired')),
   assigned_to_staff_id uuid references public.staff(id),
   assigned_at          timestamptz,
   used_at              timestamptz,
-  expires_at           date,            -- optional: expiry set in TT, tracked for the email
-  imported_at          timestamptz not null default now()
+  expires_at           timestamptz,
+  imported_at          timestamptz not null default now(),
+  notes                text
 );
 
 create index idx_ib_code_pool_available
   on public.ib_code_pool (denomination_cents, status) where status = 'available';
+create index idx_ib_code_pool_staff
+  on public.ib_code_pool (assigned_to_staff_id) where assigned_to_staff_id is not null;
 
 -- Server-only: routes use the service-role key (bypasses RLS). No client policies.
 alter table public.ib_code_pool enable row level security;
@@ -39,7 +43,7 @@ begin
 end;
 $$;
 
--- Available count per denomination (for the dashboard picker + low-stock alert).
+-- Available count per denomination.
 create or replace function public.ib_pool_stock()
 returns table(denomination_cents integer, available bigint)
 language sql security definer set search_path = public as $$
@@ -48,7 +52,7 @@ language sql security definer set search_path = public as $$
   group by denomination_cents;
 $$;
 
--- Counts per denomination + status (for the admin pool page).
+-- Counts per denomination + status (admin dashboard).
 create or replace function public.ib_pool_counts()
 returns table(denomination_cents integer, status text, n bigint)
 language sql security definer set search_path = public as $$

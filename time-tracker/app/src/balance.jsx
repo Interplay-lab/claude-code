@@ -1,8 +1,10 @@
 /* Interplay Bucks balance screen + denomination redeem picker (code pool).
-   Talks to /api/ib-balance and /api/redeem-ib with the Supabase session token. */
-import { useState, useEffect } from "react";
+   Stock comes from /api/ib-pool/stock (polled every 30s); redemption draws a
+   pre-staged code. Gated by the pool_enabled feature flag. */
+import { useState, useEffect, useRef } from "react";
 import { Icon } from "./icons.jsx";
 import { supabase, isLive } from "./lib/supabase.js";
+import { IB_DENOMINATIONS_CENTS, IB_DENOM_LABELS } from "./lib/ib-denominations.js";
 
 async function authedFetch(path, opts = {}) {
   let token = "";
@@ -10,9 +12,8 @@ async function authedFetch(path, opts = {}) {
   return fetch(path, { ...opts, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(opts.headers || {}) } });
 }
 
-const DENOMS = [500, 1000, 2500, 5000, 10000];
-const money = (n) => `$${Number(n || 0).toFixed(2)}`;
-const dollars = (cents) => `$${cents / 100}`;
+const money = (n) => `$${Number(n || 0).toLocaleString("en-US")}`;
+const dollars = (cents) => `$${(cents / 100).toLocaleString("en-US")}`;
 
 export function Balance({ app }) {
   const wide = app.device === "desktop";
@@ -20,7 +21,7 @@ export function Balance({ app }) {
   const [modal, setModal] = useState(false);
 
   const load = async () => {
-    if (!isLive) { setSt({ loading: false, demo: true, found: true, balance: 0, stock: {}, history: [] }); return; }
+    if (!isLive) { setSt({ loading: false, demo: true, found: true, balance: 0, history: [], pool_enabled: false }); return; }
     setSt((s) => ({ ...s, loading: true }));
     try {
       const r = await authedFetch("/api/ib-balance");
@@ -40,19 +41,20 @@ export function Balance({ app }) {
     </div>
   );
 
-  const canRedeem = !st.demo && st.balance > 0;
+  const canRedeem = !st.demo && st.pool_enabled && st.balance > 0;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       <div className="card" style={{ padding: wide ? 28 : 22, textAlign: "center" }}>
-        <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Interplay Bucks balance</div>
+        <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Your Interplay Bucks balance</div>
         <div className="num" style={{ fontSize: 48, fontWeight: 800, letterSpacing: "-0.02em", margin: "8px 0 4px" }}>{money(st.balance)}</div>
-        <div style={{ fontSize: 13.5, color: "var(--text-3)", marginBottom: 18 }}>available to redeem at any Interplay workshop</div>
+        <div style={{ fontSize: 13.5, color: "var(--text-3)", marginBottom: 18 }}>redeem for a single-use discount code at any Interplay event</div>
         <button className="btn btn-primary btn-lg" disabled={!canRedeem} onClick={() => setModal(true)}
           style={{ opacity: canRedeem ? 1 : 0.5, cursor: canRedeem ? "pointer" : "default" }}>
-          <Icon name="tag" size={18} /> Redeem at workshop
+          <Icon name="tag" size={18} /> Redeem
         </button>
         {st.demo && <div style={{ fontSize: 12.5, color: "var(--text-3)", marginTop: 10 }}>(Connect the live app to see your real balance.)</div>}
+        {!st.demo && !st.pool_enabled && <div style={{ fontSize: 12.5, color: "var(--text-3)", marginTop: 10 }}>Redemption is being set up — codes will be available soon.</div>}
       </div>
 
       <div className="card" style={{ padding: "8px 18px 12px" }}>
@@ -74,26 +76,46 @@ export function Balance({ app }) {
         ))}
       </div>
 
-      {modal && <RedeemModal app={app} balance={st.balance} stock={st.stock || {}} denoms={st.denoms || DENOMS} onClose={() => setModal(false)} onDone={load} />}
+      {modal && <RedeemModal app={app} balance={st.balance} onClose={() => setModal(false)} onDone={load} />}
     </div>
   );
 }
 
-function RedeemModal({ app, balance, stock, denoms, onClose, onDone }) {
+function RedeemModal({ app, balance, onClose, onDone }) {
   const wide = app.device === "desktop";
-  const [busy, setBusy] = useState(0);   // the denomination currently submitting
+  const [stock, setStock] = useState(null);
+  const [pending, setPending] = useState(0);  // denom awaiting confirm
+  const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [done, setDone] = useState(null);
+  const timer = useRef(null);
 
-  const redeem = async (denom) => {
-    setErr(""); setBusy(denom);
+  const fetchStock = async () => {
     try {
-      const r = await authedFetch("/api/redeem-ib", { method: "POST", body: JSON.stringify({ denomination_cents: denom }) });
+      const r = await authedFetch("/api/ib-pool/stock");
       const j = await r.json();
-      if (!r.ok) { setErr(j.error || "Redemption failed"); }
+      if (r.ok) {
+        const m = {};
+        for (const s of j.stock || []) m[s.denomination_cents] = s.available;
+        setStock(m);
+      }
+    } catch { /* keep previous */ }
+  };
+  useEffect(() => {
+    fetchStock();
+    timer.current = setInterval(fetchStock, 30000); // auto-refresh per spec
+    return () => clearInterval(timer.current);
+  }, []);
+
+  const confirm = async () => {
+    setErr(""); setBusy(true);
+    try {
+      const r = await authedFetch("/api/redeem-ib", { method: "POST", body: JSON.stringify({ denomination_cents: pending }) });
+      const j = await r.json();
+      if (!r.ok) setErr(j.message || j.error || "Redemption failed");
       else setDone(j);
     } catch (e) { setErr(String(e.message || e)); }
-    setBusy(0);
+    setBusy(false);
   };
 
   return (
@@ -102,7 +124,7 @@ function RedeemModal({ app, balance, stock, denoms, onClose, onDone }) {
       display: "flex", alignItems: wide ? "center" : "flex-end", justifyContent: "center", animation: "fadein .16s ease",
     }}>
       <div onClick={(e) => e.stopPropagation()} style={{
-        background: "var(--surface)", width: wide ? 440 : "100%", maxHeight: "92%", overflow: "auto",
+        background: "var(--surface)", width: wide ? 460 : "100%", maxHeight: "92%", overflow: "auto",
         borderRadius: wide ? "var(--r-xl)" : "26px 26px 0 0", boxShadow: "var(--sh-3)",
         padding: wide ? "26px 26px 24px" : "16px 22px 26px", animation: wide ? "fadein .2s ease" : "sheetup .26s cubic-bezier(.2,.8,.2,1)",
       }}>
@@ -112,38 +134,45 @@ function RedeemModal({ app, balance, stock, denoms, onClose, onDone }) {
               <Icon name="check" size={26} stroke={3} />
             </div>
             <h3 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 6px" }}>Your code is ready</h3>
-            <p style={{ fontSize: 14, color: "var(--text-2)", margin: "0 0 14px" }}>We emailed it to you too. Paste it at any Interplay event checkout — single-use.</p>
+            <p style={{ fontSize: 14, color: "var(--text-2)", margin: "0 0 14px" }}>We also emailed it to you. Paste it at any Interplay event checkout — single-use.</p>
             <div className="num" style={{ fontSize: 22, fontWeight: 800, padding: "12px", borderRadius: "var(--r-md)", background: "var(--surface-3)", letterSpacing: "0.04em" }}>{done.code}</div>
-            <div style={{ fontSize: 13, color: "var(--text-3)", margin: "10px 0 18px" }}>{money(done.amount)}{done.expires_at ? ` · expires ${String(done.expires_at).slice(0, 10)}` : ""}</div>
+            <div style={{ fontSize: 13, color: "var(--text-3)", margin: "10px 0 18px" }}>{dollars(done.denomination_cents)}{done.expires_at ? ` · expires ${String(done.expires_at).slice(0, 10)}` : ""}</div>
             <button className="btn btn-primary btn-lg" style={{ width: "100%" }} onClick={() => { onDone(); onClose(); }}>Done</button>
+          </div>
+        ) : pending ? (
+          <div style={{ textAlign: "center" }}>
+            <h3 style={{ fontSize: 20, fontWeight: 800, margin: "4px 0 8px" }}>Redeem {dollars(pending)} of IB?</h3>
+            <p style={{ fontSize: 14, color: "var(--text-2)", margin: "0 0 18px" }}>You'll get a single-use discount code by email. This can't be undone.</p>
+            {err && <div style={{ fontSize: 13.5, color: "var(--warn)", fontWeight: 600, marginBottom: 12 }}>{err}</div>}
+            <div style={{ display: "flex", gap: 10 }}>
+              <button className="btn btn-ghost btn-lg" style={{ flex: 1 }} onClick={() => { setPending(0); setErr(""); }}>Back</button>
+              <button className="btn btn-primary btn-lg" style={{ flex: 2, opacity: busy ? 0.6 : 1 }} disabled={busy} onClick={confirm}>{busy ? "Issuing…" : `Redeem ${dollars(pending)}`}</button>
+            </div>
           </div>
         ) : (
           <>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-              <h3 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>Redeem Interplay Bucks</h3>
+              <h3 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>Choose a code value</h3>
               <button className="btn btn-quiet btn-sm" style={{ padding: "0 8px", height: 34 }} onClick={onClose}><Icon name="x" size={18} /></button>
             </div>
-            <p style={{ fontSize: 13.5, color: "var(--text-2)", margin: "0 0 14px" }}>Choose a code value. Balance: <strong>{money(balance)}</strong>.</p>
+            <p style={{ fontSize: 13.5, color: "var(--text-2)", margin: "0 0 14px" }}>Balance: <strong>{money(balance)}</strong></p>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              {denoms.map((d) => {
-                const avail = Number(stock?.[d] || 0);
+              {IB_DENOMINATIONS_CENTS.map((d) => {
+                const avail = stock ? Number(stock[d] || 0) : null;
                 const affordable = balance >= d / 100;
-                const disabled = avail === 0 || !affordable || busy;
+                const out = avail === 0;
+                const disabled = out || !affordable || avail === null;
+                const sub = avail === null ? "…" : out ? "Out of stock" : !affordable ? "Insufficient balance" : `${avail} left`;
                 return (
-                  <button key={d} className="card" disabled={disabled} onClick={() => redeem(d)}
-                    style={{
-                      padding: "16px 12px", textAlign: "center", cursor: disabled ? "default" : "pointer",
-                      opacity: disabled ? 0.45 : 1, border: "1.5px solid var(--border-2)", background: "var(--surface-2)",
-                    }}>
-                    <div className="num" style={{ fontSize: 22, fontWeight: 800 }}>{dollars(d)}</div>
-                    <div style={{ fontSize: 12, color: avail === 0 ? "var(--warn)" : "var(--text-3)", fontWeight: 600, marginTop: 2 }}>
-                      {busy === d ? "issuing…" : avail === 0 ? "out of stock" : !affordable ? "over balance" : `${avail} available`}
-                    </div>
+                  <button key={d} className="card" disabled={disabled} onClick={() => setPending(d)}
+                    style={{ padding: "14px 10px", textAlign: "center", cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.45 : 1, border: "1.5px solid var(--border-2)", background: "var(--surface-2)" }}>
+                    <div className="num" style={{ fontSize: 20, fontWeight: 800 }}>{dollars(d)}</div>
+                    <div style={{ fontSize: 11, color: out ? "var(--warn)" : "var(--text-3)", fontWeight: 600, marginTop: 2 }}>{sub}</div>
+                    {IB_DENOM_LABELS[d] && <div style={{ fontSize: 10, color: "var(--text-3)", marginTop: 2, lineHeight: 1.2 }}>{IB_DENOM_LABELS[d]}</div>}
                   </button>
                 );
               })}
             </div>
-            {err && <div style={{ fontSize: 13.5, color: "var(--warn)", fontWeight: 600, marginTop: 14 }}>{err}</div>}
           </>
         )}
       </div>

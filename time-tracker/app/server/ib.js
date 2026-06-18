@@ -1,6 +1,7 @@
 // Shared server helpers for the Interplay Bucks routes (cashout / balance / redeem).
 // Server-only: uses the Airtable key + Supabase service-less auth verification.
 import { createClient } from "@supabase/supabase-js";
+import { IB_DENOMINATIONS_CENTS } from "../src/lib/ib-denominations.js";
 
 // Interplay Bucks Ledger field IDs
 export const L = {
@@ -26,8 +27,16 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const RESEND_FROM = process.env.RESEND_FROM;
 
-// Allowed redemption denominations (cents): $5 / $10 / $25 / $50 / $100
-export const DENOMS = [500, 1000, 2500, 5000, 10000];
+// Allowed redemption denominations (cents) — shared with the client picker.
+export const DENOMS = IB_DENOMINATIONS_CENTS;
+
+// Feature flag + admin email allowlist (per IB_POOL_REDEMPTION_SPEC.md).
+export const POOL_ENABLED = process.env.IB_POOL_REDEMPTION_ENABLED === "true";
+const POOL_ADMIN_EMAILS = (process.env.IB_POOL_ADMIN_EMAILS || "connect@letsinterplay.com")
+  .toLowerCase().split(",").map((s) => s.trim()).filter(Boolean);
+export function isPoolAdmin(email) {
+  return !!email && POOL_ADMIN_EMAILS.includes(String(email).toLowerCase());
+}
 
 // Service-role Supabase client (server-only; bypasses RLS for the pool table).
 export function supabaseAdmin() {
@@ -56,7 +65,7 @@ export async function runPoolStockCheck() {
   const stock = {};
   for (const d of DENOMS) stock[d] = 0;
   for (const r of rows || []) stock[r.denomination_cents] = Number(r.available);
-  const low = DENOMS.filter((d) => stock[d] < 10).map((d) => ({ denomination_cents: d, available: stock[d] }));
+  const low = DENOMS.filter((d) => stock[d] < 5).map((d) => ({ denomination_cents: d, available: stock[d] }));
   if (low.length) {
     const { data: admins } = await admin.from("staff").select("email").eq("role", "admin").eq("active", true);
     const to = (admins || []).map((a) => a.email).filter(Boolean);

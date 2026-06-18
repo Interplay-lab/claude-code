@@ -20,7 +20,10 @@ const NAV = [
   { key: "admin", label: "Admin", icon: "users" },
   { key: "pool", label: "Pool", icon: "checkCircle", adminOnly: true },
 ];
-const navFor = (app) => NAV.filter((n) => !n.adminOnly || app.user.isAdmin);
+// Pool admin email allowlist (mirror of the server's IB_POOL_ADMIN_EMAILS).
+const POOL_ADMINS = (import.meta.env.VITE_IB_POOL_ADMIN_EMAILS || "connect@letsinterplay.com")
+  .toLowerCase().split(",").map((s) => s.trim()).filter(Boolean);
+const navFor = (app) => NAV.filter((n) => !n.adminOnly || app.user.isPoolAdmin);
 const TITLES = { today: null, entries: "My entries", balance: "Interplay Bucks", admin: "Team overview", pool: "Code pool" };
 
 /* ── Running banner (persistent app-wide) ────────────────── */
@@ -75,7 +78,7 @@ function PhoneShell({ app }) {
         {app.screen === "entries" && <Entries app={app} />}
         {app.screen === "balance" && <Balance app={app} />}
         {app.screen === "admin" && <Admin app={app} />}
-        {app.screen === "pool" && app.user.isAdmin && <PoolAdmin app={app} />}
+        {app.screen === "pool" && app.user.isPoolAdmin && <PoolAdmin app={app} />}
       </main>
 
       {/* bottom nav */}
@@ -166,7 +169,7 @@ function DesktopShell({ app }) {
             {app.screen === "entries" && <Entries app={app} />}
             {app.screen === "balance" && <Balance app={app} />}
             {app.screen === "admin" && <Admin app={app} />}
-            {app.screen === "pool" && app.user.isAdmin && <PoolAdmin app={app} />}
+            {app.screen === "pool" && app.user.isPoolAdmin && <PoolAdmin app={app} />}
           </div>
         </main>
       </div>
@@ -388,12 +391,14 @@ export default function App() {
 
   // Who's signed in — from the staff row in live mode; demo persona otherwise.
   const fullName = staff?.full_name || "Maya Okafor";
+  const email = ((staff?.email) || (session?.user?.email) || "").toLowerCase();
   const user = {
     name: fullName,
     firstName: fullName.split(/\s+/)[0],
     initials: initialsOf(fullName),
     role: staff ? (staff.role === "admin" ? "Admin" : "Team member") : "Designer",
     isAdmin: !!staff && staff.role === "admin",
+    isPoolAdmin: POOL_ADMINS.includes(email),
   };
 
   const live = isLive && !!staff;

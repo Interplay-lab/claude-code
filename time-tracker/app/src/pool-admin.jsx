@@ -1,7 +1,8 @@
-/* Admin-only: Interplay Bucks code-pool management (counts + CSV import). */
+/* Admin-only: Interplay Bucks code-pool management (dashboard + CSV import). */
 import { useState, useEffect } from "react";
 import { Icon } from "./icons.jsx";
 import { supabase } from "./lib/supabase.js";
+import { IB_DENOMINATIONS_CENTS, IB_DENOM_LABELS } from "./lib/ib-denominations.js";
 
 async function authedFetch(path, opts = {}) {
   let token = "";
@@ -9,7 +10,22 @@ async function authedFetch(path, opts = {}) {
   return fetch(path, { ...opts, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(opts.headers || {}) } });
 }
 
-const dollars = (cents) => `$${cents / 100}`;
+const dollars = (cents) => `$${(cents / 100).toLocaleString("en-US")}`;
+
+// parse CSV "code,denomination_cents,expires_at" → [{code, denomination_cents, expires_at?}]
+function parseCsv(text) {
+  const codes = [];
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || /^code\s*,/i.test(line)) continue;
+    const [code, denom, exp] = line.split(",").map((s) => (s || "").trim());
+    if (!code) continue;
+    const rec = { code, denomination_cents: Number(denom) };
+    if (exp) rec.expires_at = exp;
+    codes.push(rec);
+  }
+  return codes;
+}
 
 export function PoolAdmin({ app }) {
   const [st, setSt] = useState({ loading: true });
@@ -21,7 +37,7 @@ export function PoolAdmin({ app }) {
   const load = async () => {
     setSt((s) => ({ ...s, loading: true }));
     try {
-      const r = await authedFetch("/api/admin/ib-pool");
+      const r = await authedFetch("/api/admin/ib-pool/status");
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || "Failed to load");
       setSt({ loading: false, ...j });
@@ -32,7 +48,9 @@ export function PoolAdmin({ app }) {
   const doImport = async () => {
     setErr(""); setResult(null); setBusy(true);
     try {
-      const r = await authedFetch("/api/admin/ib-pool/import", { method: "POST", body: JSON.stringify({ csv }) });
+      const codes = parseCsv(csv);
+      if (!codes.length) throw new Error("No rows found. Use: code,denomination_cents,expires_at");
+      const r = await authedFetch("/api/admin/ib-pool/import", { method: "POST", body: JSON.stringify({ codes }) });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || "Import failed");
       setResult(j); setCsv(""); load();
@@ -43,61 +61,75 @@ export function PoolAdmin({ app }) {
   if (st.loading) return <div style={{ padding: 40, textAlign: "center", color: "var(--text-3)" }}>Loading…</div>;
   if (st.error) return <div className="card" style={{ padding: 24, color: "var(--warn)", fontWeight: 600 }}>{st.error}</div>;
 
-  const denoms = st.denoms || [500, 1000, 2500, 5000, 10000];
+  const denoms = st.denoms || IB_DENOMINATIONS_CENTS;
+  const th = { fontSize: 11.5, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.04em", textAlign: "right", padding: "8px 10px" };
+  const td = { fontSize: 14, fontWeight: 700, textAlign: "right", padding: "9px 10px" };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-      {/* stock per denomination */}
-      <div className="card" style={{ padding: "8px 8px 12px" }}>
-        <h3 style={{ fontSize: 15, fontWeight: 800, margin: "12px 12px 10px" }}>Code stock</h3>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 10, padding: "0 8px" }}>
-          {denoms.map((d) => {
-            const c = st.counts?.[d] || { available: 0, assigned: 0, used: 0 };
-            const low = c.available < 10;
-            return (
-              <div key={d} style={{ padding: "14px 12px", borderRadius: "var(--r-md)", background: "var(--surface-2)", border: "1.5px solid var(--border-2)" }}>
-                <div className="num" style={{ fontSize: 18, fontWeight: 800 }}>{dollars(d)}</div>
-                <div className="num" style={{ fontSize: 22, fontWeight: 800, color: low ? "var(--warn)" : "var(--ok)" }}>{c.available}</div>
-                <div style={{ fontSize: 11.5, color: "var(--text-3)", fontWeight: 600 }}>available{low ? " · low!" : ""}</div>
-                <div style={{ fontSize: 11.5, color: "var(--text-3)", marginTop: 4 }}>{c.assigned} assigned · {c.used} used</div>
-              </div>
-            );
-          })}
-        </div>
+      {/* dashboard */}
+      <div className="card" style={{ padding: "8px 8px 12px", overflowX: "auto" }}>
+        <h3 style={{ fontSize: 15, fontWeight: 800, margin: "12px 10px 8px" }}>Code pool</h3>
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 420 }}>
+          <thead><tr style={{ borderBottom: "1px solid var(--border)" }}>
+            <th style={{ ...th, textAlign: "left" }}>Denomination</th>
+            <th style={th}>Available</th><th style={th}>Assigned</th><th style={th}>Used</th><th style={th}>Total</th>
+          </tr></thead>
+          <tbody>
+            {denoms.map((d) => {
+              const c = st.counts?.[d] || { available: 0, assigned: 0, used: 0, total: 0 };
+              const low = c.available < 5;
+              return (
+                <tr key={d} style={{ borderBottom: "1px solid var(--border)", background: low ? "var(--warn-soft)" : "transparent" }}>
+                  <td style={{ ...td, textAlign: "left" }}>
+                    {dollars(d)} {IB_DENOM_LABELS[d] && <span style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 600 }}>· {IB_DENOM_LABELS[d]}</span>}
+                  </td>
+                  <td className="num" style={{ ...td, color: low ? "var(--warn)" : "var(--ok)" }}>{c.available}{low ? " ⚠️" : ""}</td>
+                  <td className="num" style={{ ...td, color: "var(--text-2)" }}>{c.assigned}</td>
+                  <td className="num" style={{ ...td, color: "var(--text-2)" }}>{c.used}</td>
+                  <td className="num" style={td}>{c.total}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
 
       {/* import */}
       <div className="card" style={{ padding: 18 }}>
         <h3 style={{ fontSize: 15, fontWeight: 800, margin: "0 0 6px" }}>Import codes</h3>
         <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 10px" }}>
-          Paste one per line: <code>code,denomination_cents</code> (optional 3rd column <code>expires_at</code> as YYYY-MM-DD). Duplicates are skipped.
+          Paste CSV: <code>code,denomination_cents,expires_at</code> (one per line). Duplicates are skipped.
         </p>
         <textarea className="input" value={csv} onChange={(e) => setCsv(e.target.value)} rows={8}
-          placeholder={"IB-Q3-001,500\nIB-Q3-002,1000\nIB-Q3-003,2500,2026-12-31"}
+          placeholder={"code,denomination_cents,expires_at\nIB-Q3-001,2500,2027-06-18\nIB-Q3-002,5000,2027-06-18"}
           style={{ fontFamily: "ui-monospace, monospace", fontSize: 13, resize: "vertical" }} />
         {err && <div style={{ fontSize: 13.5, color: "var(--warn)", fontWeight: 600, marginTop: 10 }}>{err}</div>}
         {result && (
           <div style={{ fontSize: 13.5, color: "var(--ok)", fontWeight: 600, marginTop: 10 }}>
-            Imported {result.imported} code{result.imported === 1 ? "" : "s"}
-            {result.skipped_duplicates ? ` · ${result.skipped_duplicates} duplicate(s) skipped` : ""}
-            {result.invalid_lines?.length ? ` · ${result.invalid_lines.length} invalid line(s) ignored` : ""}.
+            Imported {result.inserted} code{result.inserted === 1 ? "" : "s"}
+            {result.skipped_duplicates ? ` (${result.skipped_duplicates} duplicate${result.skipped_duplicates === 1 ? "" : "s"} skipped)` : ""}
+            {result.invalid_lines?.length ? ` · ${result.invalid_lines.length} invalid ignored` : ""}.
           </div>
         )}
         <button className="btn btn-primary btn-md" disabled={busy || !csv.trim()} onClick={doImport}
           style={{ marginTop: 12, opacity: busy || !csv.trim() ? 0.5 : 1 }}>
-          <Icon name="plus" size={18} /> {busy ? "Importing…" : "Import codes"}
+          <Icon name="plus" size={18} /> {busy ? "Importing…" : "Import"}
         </button>
       </div>
 
-      {/* recent imports */}
+      {/* recent activity */}
       <div className="card" style={{ padding: "8px 18px 12px" }}>
-        <h3 style={{ fontSize: 15, fontWeight: 800, margin: "12px 4px 8px" }}>Recent imports</h3>
-        {(!st.recent_imports || st.recent_imports.length === 0) ? (
-          <div style={{ padding: "16px 0", textAlign: "center", color: "var(--text-3)", fontSize: 14 }}>No imports yet.</div>
-        ) : st.recent_imports.map((r, i) => (
-          <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "10px 4px", borderBottom: i < st.recent_imports.length - 1 ? "1px solid var(--border)" : "none" }}>
-            <span className="num" style={{ fontSize: 13, color: "var(--text-2)", fontWeight: 600 }}>{new Date(r.imported_at).toLocaleString()}</span>
-            <span className="num" style={{ fontSize: 13, fontWeight: 800 }}>{r.count} codes</span>
+        <h3 style={{ fontSize: 15, fontWeight: 800, margin: "12px 4px 8px" }}>Recent redemptions</h3>
+        {(!st.recent_assignments || st.recent_assignments.length === 0) ? (
+          <div style={{ padding: "16px 0", textAlign: "center", color: "var(--text-3)", fontSize: 14 }}>No redemptions yet.</div>
+        ) : st.recent_assignments.map((a, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 4px", borderBottom: i < st.recent_assignments.length - 1 ? "1px solid var(--border)" : "none" }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.staff_name || "—"}</div>
+              <div className="num" style={{ fontSize: 12, color: "var(--text-3)", fontWeight: 600 }}>{a.code} · {a.assigned_at ? new Date(a.assigned_at).toLocaleDateString() : ""}</div>
+            </div>
+            <span className="num" style={{ fontSize: 14, fontWeight: 800 }}>{dollars(a.denomination_cents)}</span>
           </div>
         ))}
       </div>
