@@ -55,42 +55,77 @@ export default async function handler(req, res) {
     const expires = new Date(now); expires.setMonth(expires.getMonth() + 12);
     const expiryUnix = Math.floor((Date.now() + 365 * 24 * 60 * 60 * 1000) / 1000); // TT wants seconds since epoch
 
-    // 1) voucher first — if this fails, no ledger row / email. (DEBUG: verbose logging)
-    const payload = {
-      code, name: `Interplay Bucks Redemption — ${name} — $${amount}`,
+    // 1) Create the voucher batch (usable on any event). DEBUG: verbose logging.
+    const ttAuth = "Basic " + Buffer.from(TT_API_KEY + ":").toString("base64");
+    const batchPayload = {
+      name: `Interplay Bucks Redemption — ${name} — $${amount}`,
       type: "fixed_amount", value: String(Math.round(amount * 100)),
-      expiry: String(expiryUnix), max_redemptions: "1",
+      expiry: String(expiryUnix), max_redemptions: "1", usable_on_any_event: "true",
     };
-    console.log("TT request body:", payload);
-    let ttRes;
+    console.log("TT batch request body:", batchPayload);
+    let batchRes;
     try {
-      ttRes = await fetch("https://api.tickettailor.com/v1/vouchers", {
+      batchRes = await fetch("https://api.tickettailor.com/v1/vouchers", {
         method: "POST",
-        headers: {
-          Authorization: "Basic " + Buffer.from(TT_API_KEY + ":").toString("base64"),
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams(payload).toString(),
+        headers: { Authorization: ttAuth, "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams(batchPayload).toString(),
       });
     } catch (e) {
-      console.log("TT fetch error:", String(e));
-      res.status(400).json({ error: "Ticket Tailor rejected the voucher", tt_status: 0, tt_body: String(e?.message || e) });
+      console.log("TT batch fetch error:", String(e));
+      res.status(400).json({ error: "Ticket Tailor rejected the voucher batch", tt_status: 0, tt_body: String(e?.message || e) });
       return;
     }
-    if (!ttRes.ok) {
-      const ttBody = await ttRes.text().catch(() => "");
-      console.log("TT response:", ttRes.status, ttBody);
-      res.status(400).json({ error: "Ticket Tailor rejected the voucher", tt_status: ttRes.status, tt_body: ttBody });
+    const batchText = await batchRes.text().catch(() => "");
+    console.log("TT batch response:", batchRes.status, batchText);
+    if (!batchRes.ok) {
+      res.status(400).json({ error: "Ticket Tailor rejected the voucher batch", tt_status: batchRes.status, tt_body: batchText });
       return;
     }
+    let batchId;
+    try { const b = JSON.parse(batchText); batchId = b.id || b.data?.id; } catch { /* ignore */ }
+    if (!batchId) {
+      res.status(400).json({ error: "Ticket Tailor returned no batch id", tt_status: batchRes.status, tt_body: batchText });
+      return;
+    }
+
+    const rollback = async () => {
+      try { await fetch(`https://api.tickettailor.com/v1/vouchers/${batchId}`, { method: "DELETE", headers: { Authorization: ttAuth } }); }
+      catch (e) { console.log("TT batch rollback failed:", String(e)); }
+    };
+
+    // 2) Issue an actual redeemable code within the batch.
+    const issuePayload = { voucher_id: batchId, code };
+    console.log("TT issue request body:", issuePayload);
+    let issueRes;
+    try {
+      issueRes = await fetch("https://api.tickettailor.com/v1/issued_vouchers", {
+        method: "POST",
+        headers: { Authorization: ttAuth, "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams(issuePayload).toString(),
+      });
+    } catch (e) {
+      console.log("TT issue fetch error:", String(e));
+      await rollback();
+      res.status(400).json({ error: "Ticket Tailor could not issue the code", tt_status: 0, tt_body: String(e?.message || e) });
+      return;
+    }
+    const issueText = await issueRes.text().catch(() => "");
+    console.log("TT issue response:", issueRes.status, issueText);
+    if (!issueRes.ok) {
+      await rollback();
+      res.status(400).json({ error: "Ticket Tailor could not issue the code", tt_status: issueRes.status, tt_body: issueText });
+      return;
+    }
+    let finalCode = code;
+    try { const iv = JSON.parse(issueText); finalCode = iv.code || iv.data?.code || code; } catch { /* keep code */ }
 
     // 2) ledger row (negative)
     await airtable("POST", encodeURIComponent(LEDGER_TABLE), {
       typecast: true,
       records: [{ fields: {
-        [L.entryLabel]: `IB Redemption — ${code}`,
+        [L.entryLabel]: `IB Redemption — ${finalCode}`,
         [L.person]: [staff.id], [L.date]: now.toISOString().slice(0, 10),
-        [L.amount]: -amount, [L.type]: TYPE_REDEEMED, [L.ttRef]: code,
+        [L.amount]: -amount, [L.type]: TYPE_REDEEMED, [L.ttRef]: finalCode,
         [L.notes]: `Redeemed via Hourglass dashboard. Code expires ${expires.toISOString().slice(0, 10)}. Workshop note: ${note || "n/a"}`,
       } }],
     });
@@ -99,17 +134,17 @@ export default async function handler(req, res) {
     const exp = expires.toISOString().slice(0, 10);
     await sendEmail(
       user.email,
-      `Your Interplay Bucks code — ${code} ($${amount.toFixed(2)})`,
+      `Your Interplay Bucks code — ${finalCode} ($${amount.toFixed(2)})`,
       `<div style="font-family:sans-serif;line-height:1.5">
         <h2>Your Interplay Bucks gift code</h2>
-        <p>Amount: <strong>$${amount.toFixed(2)}</strong><br/>Code: <strong>${code}</strong><br/>Expires: <strong>${exp}</strong></p>
+        <p>Amount: <strong>$${amount.toFixed(2)}</strong><br/>Code: <strong>${finalCode}</strong><br/>Expires: <strong>${exp}</strong></p>
         <p>Paste this code at checkout for any Interplay workshop to apply the discount.</p>
         <p style="color:#6E655C">Questions? Reply to this email or contact your admin.</p>
       </div>`
     ).catch(() => {});
 
     res.status(200).json({
-      code, amount, expires_at: expires.toISOString(),
+      code: finalCode, amount, expires_at: expires.toISOString(),
       new_balance: Math.round((balance - amount) * 100) / 100,
     });
   } catch (e) {
