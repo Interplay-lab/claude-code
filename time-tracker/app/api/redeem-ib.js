@@ -74,17 +74,18 @@ export default async function handler(req, res) {
       any_event: "true",
       all_events: "true",
     };
-    console.log("TT voucher request body:", payload);
+    const TT_URL = "https://api.tickettailor.com/v1/vouchers";
+    console.log("TT request:", "POST", TT_URL, "body:", new URLSearchParams(payload).toString());
     let ttRes;
     try {
-      ttRes = await fetch("https://api.tickettailor.com/v1/vouchers", {
+      ttRes = await fetch(TT_URL, {
         method: "POST",
         headers: { Authorization: ttAuth, "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams(payload).toString(),
       });
     } catch (e) {
       console.log("TT fetch error:", String(e));
-      res.status(400).json({ error: "Ticket Tailor rejected the voucher", tt_status: 0, tt_body: String(e?.message || e) });
+      res.status(400).json({ error: "Ticket Tailor request failed", tt_status: 0, tt_body: String(e?.message || e) });
       return;
     }
     const ttText = await ttRes.text().catch(() => "");
@@ -93,8 +94,18 @@ export default async function handler(req, res) {
       res.status(400).json({ error: "Ticket Tailor rejected the voucher", tt_status: ttRes.status, tt_body: ttText });
       return;
     }
-    let finalCode = code;
-    try { const v = JSON.parse(ttText); finalCode = v.code || v.data?.code || code; } catch { /* keep code */ }
+    // Never fabricate: only proceed with a real code read back from TT's response.
+    let finalCode = "";
+    try {
+      const v = JSON.parse(ttText);
+      finalCode = v.code || v.data?.code || (Array.isArray(v.data) ? v.data[0]?.code : "") || "";
+    } catch { finalCode = ""; }
+    if (!finalCode) {
+      console.log("TT returned 200 but no readable voucher code — not issuing.");
+      res.status(502).json({ error: "Ticket Tailor did not return a usable code — nothing was issued.", tt_status: ttRes.status, tt_body: ttText });
+      return;
+    }
+    console.log("TT issued code:", finalCode);
 
     // 2) ledger row (negative)
     await airtable("POST", encodeURIComponent(LEDGER_TABLE), {
