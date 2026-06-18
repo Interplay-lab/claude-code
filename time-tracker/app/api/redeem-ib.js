@@ -55,26 +55,25 @@ export default async function handler(req, res) {
     const expires = new Date(now); expires.setMonth(expires.getMonth() + 12);
     const expiryUnix = Math.floor((Date.now() + 365 * 24 * 60 * 60 * 1000) / 1000); // TT wants seconds since epoch
 
-    // A TT voucher IS a single redeemable code — no separate "issue" step
-    // (/v1/issued_vouchers 404s). usable_on_any_event=true makes it work at
-    // any Interplay event checkout. DEBUG: full response logged so we can see
-    // the voucher object shape (e.g. if a codes_count/batch model is needed).
+    // TT DISCOUNT CODES are the right primitive for programmatic redemption
+    // codes (vouchers = storefront gift-card sales). DEBUG: full logging.
     const ttAuth = "Basic " + Buffer.from(TT_API_KEY + ":").toString("base64");
+    const TT_URL = "https://api.tickettailor.com/v1/discount_codes";
     const payload = {
       code, name: `Interplay Bucks Redemption — ${name} — $${amount}`,
-      type: "fixed_amount", value: String(Math.round(amount * 100)),
+      value: String(Math.round(amount * 100)),              // cents
+      type: "fixed_amount", discount_type: "fixed_amount",  // cover both field names
       expiry: String(expiryUnix), max_redemptions: "1",
-      // "any event" applicability — TT field name uncertain (docs 403 us); send
-      // every candidate at once since TT ignores unknown params. Trim once we
-      // see which one flips "Usable on any event" to Yes in the TT admin.
+      // apply to all events — field name uncertain (docs 403 us); TT ignores
+      // unknown params, so send candidates. If TT instead needs explicit
+      // event_ids, the logged response will tell us and we'll assign them.
+      applies_to_all_events: "true",
+      apply_to_all_events: "true",
       usable_on_any_event: "true",
       applicable_to_all_events: "true",
       valid_for_all_events: "true",
-      apply_to_all_events: "true",
-      any_event: "true",
       all_events: "true",
     };
-    const TT_URL = "https://api.tickettailor.com/v1/vouchers";
     console.log("TT request:", "POST", TT_URL, "body:", new URLSearchParams(payload).toString());
     let ttRes;
     try {
@@ -91,7 +90,7 @@ export default async function handler(req, res) {
     const ttText = await ttRes.text().catch(() => "");
     console.log("TT voucher response:", ttRes.status, ttText);
     if (!ttRes.ok) {
-      res.status(400).json({ error: "Ticket Tailor rejected the voucher", tt_status: ttRes.status, tt_body: ttText });
+      res.status(400).json({ error: "Ticket Tailor rejected the discount code", tt_status: ttRes.status, tt_body: ttText });
       return;
     }
     // Never fabricate: only proceed with a real code read back from TT's response.
