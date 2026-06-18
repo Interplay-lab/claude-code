@@ -63,7 +63,16 @@ export default async function handler(req, res) {
     const payload = {
       code, name: `Interplay Bucks Redemption — ${name} — $${amount}`,
       type: "fixed_amount", value: String(Math.round(amount * 100)),
-      expiry: String(expiryUnix), max_redemptions: "1", usable_on_any_event: "true",
+      expiry: String(expiryUnix), max_redemptions: "1",
+      // "any event" applicability — TT field name uncertain (docs 403 us); send
+      // every candidate at once since TT ignores unknown params. Trim once we
+      // see which one flips "Usable on any event" to Yes in the TT admin.
+      usable_on_any_event: "true",
+      applicable_to_all_events: "true",
+      valid_for_all_events: "true",
+      apply_to_all_events: "true",
+      any_event: "true",
+      all_events: "true",
     };
     console.log("TT voucher request body:", payload);
     let ttRes;
