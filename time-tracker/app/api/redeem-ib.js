@@ -57,7 +57,8 @@ export default async function handler(req, res) {
 
     // 1) voucher first — if this fails, no ledger row / email. (DEBUG: verbose logging)
     const payload = {
-      code, type: "fixed_amount", value: String(Math.round(amount * 100)),
+      code, name: `Interplay Bucks Redemption — ${name} — $${amount}`,
+      type: "fixed_amount", value: String(Math.round(amount * 100)),
       expiry: String(expiryUnix), max_redemptions: "1",
     };
     console.log("TT request body:", payload);
