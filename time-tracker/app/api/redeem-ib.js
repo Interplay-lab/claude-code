@@ -55,69 +55,37 @@ export default async function handler(req, res) {
     const expires = new Date(now); expires.setMonth(expires.getMonth() + 12);
     const expiryUnix = Math.floor((Date.now() + 365 * 24 * 60 * 60 * 1000) / 1000); // TT wants seconds since epoch
 
-    // 1) Create the voucher batch (usable on any event). DEBUG: verbose logging.
+    // A TT voucher IS a single redeemable code — no separate "issue" step
+    // (/v1/issued_vouchers 404s). usable_on_any_event=true makes it work at
+    // any Interplay event checkout. DEBUG: full response logged so we can see
+    // the voucher object shape (e.g. if a codes_count/batch model is needed).
     const ttAuth = "Basic " + Buffer.from(TT_API_KEY + ":").toString("base64");
-    const batchPayload = {
-      name: `Interplay Bucks Redemption — ${name} — $${amount}`,
+    const payload = {
+      code, name: `Interplay Bucks Redemption — ${name} — $${amount}`,
       type: "fixed_amount", value: String(Math.round(amount * 100)),
       expiry: String(expiryUnix), max_redemptions: "1", usable_on_any_event: "true",
     };
-    console.log("TT batch request body:", batchPayload);
-    let batchRes;
+    console.log("TT voucher request body:", payload);
+    let ttRes;
     try {
-      batchRes = await fetch("https://api.tickettailor.com/v1/vouchers", {
+      ttRes = await fetch("https://api.tickettailor.com/v1/vouchers", {
         method: "POST",
         headers: { Authorization: ttAuth, "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams(batchPayload).toString(),
+        body: new URLSearchParams(payload).toString(),
       });
     } catch (e) {
-      console.log("TT batch fetch error:", String(e));
-      res.status(400).json({ error: "Ticket Tailor rejected the voucher batch", tt_status: 0, tt_body: String(e?.message || e) });
+      console.log("TT fetch error:", String(e));
+      res.status(400).json({ error: "Ticket Tailor rejected the voucher", tt_status: 0, tt_body: String(e?.message || e) });
       return;
     }
-    const batchText = await batchRes.text().catch(() => "");
-    console.log("TT batch response:", batchRes.status, batchText);
-    if (!batchRes.ok) {
-      res.status(400).json({ error: "Ticket Tailor rejected the voucher batch", tt_status: batchRes.status, tt_body: batchText });
-      return;
-    }
-    let batchId;
-    try { const b = JSON.parse(batchText); batchId = b.id || b.data?.id; } catch { /* ignore */ }
-    if (!batchId) {
-      res.status(400).json({ error: "Ticket Tailor returned no batch id", tt_status: batchRes.status, tt_body: batchText });
-      return;
-    }
-
-    const rollback = async () => {
-      try { await fetch(`https://api.tickettailor.com/v1/vouchers/${batchId}`, { method: "DELETE", headers: { Authorization: ttAuth } }); }
-      catch (e) { console.log("TT batch rollback failed:", String(e)); }
-    };
-
-    // 2) Issue an actual redeemable code within the batch.
-    const issuePayload = { voucher_id: batchId, code };
-    console.log("TT issue request body:", issuePayload);
-    let issueRes;
-    try {
-      issueRes = await fetch("https://api.tickettailor.com/v1/issued_vouchers", {
-        method: "POST",
-        headers: { Authorization: ttAuth, "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams(issuePayload).toString(),
-      });
-    } catch (e) {
-      console.log("TT issue fetch error:", String(e));
-      await rollback();
-      res.status(400).json({ error: "Ticket Tailor could not issue the code", tt_status: 0, tt_body: String(e?.message || e) });
-      return;
-    }
-    const issueText = await issueRes.text().catch(() => "");
-    console.log("TT issue response:", issueRes.status, issueText);
-    if (!issueRes.ok) {
-      await rollback();
-      res.status(400).json({ error: "Ticket Tailor could not issue the code", tt_status: issueRes.status, tt_body: issueText });
+    const ttText = await ttRes.text().catch(() => "");
+    console.log("TT voucher response:", ttRes.status, ttText);
+    if (!ttRes.ok) {
+      res.status(400).json({ error: "Ticket Tailor rejected the voucher", tt_status: ttRes.status, tt_body: ttText });
       return;
     }
     let finalCode = code;
-    try { const iv = JSON.parse(issueText); finalCode = iv.code || iv.data?.code || code; } catch { /* keep code */ }
+    try { const v = JSON.parse(ttText); finalCode = v.code || v.data?.code || code; } catch { /* keep code */ }
 
     // 2) ledger row (negative)
     await airtable("POST", encodeURIComponent(LEDGER_TABLE), {
