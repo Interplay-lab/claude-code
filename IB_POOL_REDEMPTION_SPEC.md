@@ -177,28 +177,35 @@ Mondays at 6am PT (13:00 UTC). For each denomination, if `available < 5`, send B
 
 ### Modify: `/dashboard/ib-balance` (staff-facing)
 
-Replace any freeform amount input with a denomination picker.
+Replace any freeform amount input with a denomination **dropdown picker**.
 
 **Layout:**
 - Header: "Your Interplay Bucks balance: $X,XXX"
-- Grid of buttons, one per denomination:
+- Single `<select>` (or shadcn `Select` / equivalent) labeled "Redeem amount:"
+- Default option: "Select an amount..."
+- Options list, in this order:
   ```
-  [ $25 ]   [ $50 ]   [ $100 ]
-  18 left   27 left   11 left
-
-  [ $250 ]  [ $500 ]
-  9 left    6 left
-
-  [ $625 ]  [ $650 ]  [ $675 ]  [ $750 ]
-  4 left    5 left    3 left    5 left
+  $25   (18 available)
+  $50   (27 available)
+  $100  (11 available)
+  $250  (9 available)
+  $500  (6 available)
+  ─── Workshop tier ───  (disabled section header)
+  $625  — Boulder Dojo Super EB  (4 available)
+  $650  — Online Dojo GA         (5 available)
+  $675  — Boulder Dojo EB        (3 available)
+  $750  — Boulder Dojo GA        (5 available)
   ```
-- Each button disabled when:
-  - Stock count is 0 (show "Out of stock"), OR
-  - Staff balance < denomination (show "Insufficient balance")
-- Clicking → confirmation modal: "Redeem $X of IB? You'll get a single-use discount code by email."
+- Each option **disabled** (greyed out, not selectable) when:
+  - Stock count is 0 → label suffix: "(Out of stock)"
+  - Staff balance < denomination → label suffix: "(Insufficient balance)"
+- Below the dropdown: `[ Redeem ]` button, disabled until a valid option is selected
+- Clicking Redeem → confirmation modal: "Redeem $X of IB? You'll get a single-use discount code by email."
 - On confirm → call `POST /api/redeem-ib`, show success state with the code visible + "We also emailed it to you."
 
-Stock counts come from `GET /api/ib-pool/stock` and should auto-refresh every 30 seconds while page is open.
+Stock counts come from `GET /api/ib-pool/stock` and should auto-refresh every 30 seconds while page is open. The dropdown options re-render with updated counts on each refresh.
+
+**Accessibility:** use a real `<select>` element or an ARIA-compliant combobox so screen readers and keyboard users work without extra config.
 
 ### New page: `/admin/ib-pool` (admin-only)
 
