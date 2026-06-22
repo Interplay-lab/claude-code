@@ -1,0 +1,108 @@
+{
+  "name": "Joanna Semi-Monthly Payout Email → Violet",
+  "flow": [
+    {
+      "id": 1,
+      "module": "util:SetVariables",
+      "version": 1,
+      "filter": {
+        "name": "Only run on 1st or 16th",
+        "conditions": [
+          [{"a": "{{formatDate(now; \"D\"; \"America/Los_Angeles\")}}", "b": "1", "o": "text:equal"}],
+          [{"a": "{{formatDate(now; \"D\"; \"America/Los_Angeles\")}}", "b": "16", "o": "text:equal"}]
+        ]
+      },
+      "mapper": {
+        "scope": "roundtrip",
+        "variables": [
+          {
+            "name": "today_dom",
+            "value": "{{formatDate(now; \"D\"; \"America/Los_Angeles\")}}"
+          },
+          {
+            "name": "period_end",
+            "value": "{{if(formatDate(now; \"D\"; \"America/Los_Angeles\") = \"16\"; formatDate(setDate(now; 15); \"YYYY-MM-DD\"; \"America/Los_Angeles\"); formatDate(addDays(setDate(now; 1); -1); \"YYYY-MM-DD\"; \"America/Los_Angeles\"))}}"
+          },
+          {
+            "name": "period_label",
+            "value": "{{if(formatDate(now; \"D\"; \"America/Los_Angeles\") = \"16\"; formatDate(setDate(now; 1); \"MMM D\"; \"America/Los_Angeles\") + \"–\" + formatDate(setDate(now; 15); \"D, YYYY\"; \"America/Los_Angeles\"); formatDate(setDate(addMonths(now; -1); 16); \"MMM D\"; \"America/Los_Angeles\") + \"–\" + formatDate(addDays(setDate(now; 1); -1); \"D, YYYY\"; \"America/Los_Angeles\"))}}"
+          }
+        ]
+      },
+      "parameters": {},
+      "metadata": {"designer": {"x": 0, "y": 0}}
+    },
+    {
+      "id": 2,
+      "module": "airtable:ActionSearchRecords",
+      "version": 3,
+      "mapper": {
+        "base": "appONwRwGnRvhPgHc",
+        "table": "tblielJsv6tfaxJ3c",
+        "formula": "AND(FIND(\"recweNAZ0cQ6PQRKz\", ARRAYJOIN({fldrqvgbLMSMTMbVC}, \",\")) > 0, {fldf9FvqvmyywkRz3} = \"{{1.period_end}}\")",
+        "maxRecords": 1,
+        "useColumnId": true
+      },
+      "parameters": {"__IMTCONN__": 8741307},
+      "metadata": {"designer": {"x": 300, "y": 0}}
+    },
+    {
+      "id": 3,
+      "module": "google-email:sendAnEmail",
+      "version": 4,
+      "filter": {
+        "name": "Pay Period found",
+        "conditions": [[
+          {"a": "{{length(2.id)}}", "b": "0", "o": "number:notequal"}
+        ]]
+      },
+      "mapper": {
+        "to": [{"address": "violetstarkeyhere@gmail.com"}],
+        "subject": "Joanna's payout for {{1.period_label}} — ${{2.fldTS2RBqf1NwLvQw}} due",
+        "contentType": "text/plain",
+        "content": "Hi Violet,\n\nJoanna's payout for the period that just closed:\n\n  Period: {{1.period_label}}\n  Hours: {{2.fldZdQ2byK0FKt6kY}} hrs\n  Rate: $7/hr\n  Amount due: ${{2.fldTS2RBqf1NwLvQw}}\n  Pay method: Venmo\n\nAirtable record: https://airtable.com/appONwRwGnRvhPgHc/tblielJsv6tfaxJ3c/{{2.id}}\n\nOnce you've sent payment, please reply or let me know so I can mark the record paid in Airtable.\n\nThanks!\nBriana"
+      },
+      "parameters": {"__IMTCONN__": 8744275},
+      "metadata": {"designer": {"x": 600, "y": 0}}
+    },
+    {
+      "id": 4,
+      "module": "airtable:ActionUpdateRecord",
+      "version": 3,
+      "mapper": {
+        "base": "appONwRwGnRvhPgHc",
+        "table": "tblielJsv6tfaxJ3c",
+        "id": "{{2.id}}",
+        "record": {
+          "fldwnHSyhkQakXn6F": "Sent",
+          "fldfZLYxmYCPC7PjL": "{{formatDate(now; \"YYYY-MM-DD\"; \"America/Los_Angeles\")}}"
+        },
+        "typecast": true,
+        "useColumnId": true
+      },
+      "parameters": {"__IMTCONN__": 8741307},
+      "metadata": {"designer": {"x": 900, "y": 0}}
+    }
+  ],
+  "metadata": {
+    "instant": false,
+    "version": 1,
+    "designer": {"orphans": []},
+    "scenario": {
+      "dlq": false,
+      "dataloss": false,
+      "maxErrors": 3,
+      "autoCommit": true,
+      "roundtrips": 1,
+      "sequential": false,
+      "confidential": false,
+      "freshVariables": false,
+      "autoCommitTriggerLast": true
+    },
+    "scheduling": {
+      "type": "indefinitely",
+      "interval": 86400,
+      "start": "2026-07-01T16:00:00.000Z"
+    }
+  }
+}
