@@ -1,0 +1,125 @@
+{
+  "name": "Series Rosters Gap Check (Weekly)",
+  "flow": [
+    {
+      "id": 1,
+      "module": "util:SetVariables",
+      "version": 1,
+      "filter": {
+        "name": "Only run on Monday",
+        "conditions": [
+          [{"a": "{{formatDate(now; \"dddd\"; \"America/Los_Angeles\")}}", "b": "Monday", "o": "text:equal"}]
+        ]
+      },
+      "mapper": {
+        "scope": "roundtrip",
+        "variables": [
+          {"name": "since_unix", "value": "{{round(parseDate(formatDate(addDays(now; -7); \"YYYY-MM-DD 00:00:00\"; \"America/Los_Angeles\")) / 1000)}}"},
+          {"name": "since_iso", "value": "{{formatDate(addDays(now; -7); \"YYYY-MM-DD\"; \"America/Los_Angeles\")}}"},
+          {"name": "today_iso", "value": "{{formatDate(now; \"YYYY-MM-DD\"; \"America/Los_Angeles\")}}"}
+        ]
+      },
+      "parameters": {},
+      "metadata": {"designer": {"x": 0, "y": 0}}
+    },
+    {
+      "id": 2,
+      "module": "ticket-tailor:makeAPICall",
+      "version": 1,
+      "mapper": {
+        "url": "/v1/orders",
+        "method": "GET",
+        "qs": [
+          {"key": "event_series_id", "value": "es_2253099"},
+          {"key": "status", "value": "paid"},
+          {"key": "created_at_gte", "value": "{{1.since_unix}}"},
+          {"key": "limit", "value": "100"}
+        ],
+        "headers": []
+      },
+      "parameters": {"__IMTCONN__": 8429518},
+      "metadata": {"designer": {"x": 300, "y": 0}}
+    },
+    {
+      "id": 3,
+      "module": "ticket-tailor:makeAPICall",
+      "version": 1,
+      "mapper": {
+        "url": "/v1/orders",
+        "method": "GET",
+        "qs": [
+          {"key": "event_series_id", "value": "es_2216944"},
+          {"key": "status", "value": "paid"},
+          {"key": "created_at_gte", "value": "{{1.since_unix}}"},
+          {"key": "limit", "value": "100"}
+        ],
+        "headers": []
+      },
+      "parameters": {"__IMTCONN__": 8429518},
+      "metadata": {"designer": {"x": 600, "y": 0}}
+    },
+    {
+      "id": 4,
+      "module": "airtable:ActionSearchRecords",
+      "version": 3,
+      "mapper": {
+        "base": "appONwRwGnRvhPgHc",
+        "table": "tblcdvTCAJHcvqFY3",
+        "formula": "AND({Series Name} = 'Relational Dojo', IS_AFTER({Registration Date}, '{{1.since_iso}}'))",
+        "maxRecords": 100,
+        "useColumnId": false
+      },
+      "parameters": {"__IMTCONN__": 8741307},
+      "metadata": {"designer": {"x": 900, "y": 0}}
+    },
+    {
+      "id": 5,
+      "module": "util:SetVariables",
+      "version": 1,
+      "mapper": {
+        "scope": "roundtrip",
+        "variables": [
+          {"name": "tt_total", "value": "{{length(2.body.data) + length(3.body.data)}}"},
+          {"name": "rosters_count", "value": "{{length(4.array)}}"},
+          {"name": "gap", "value": "{{(length(2.body.data) + length(3.body.data)) - length(4.array)}}"}
+        ]
+      },
+      "parameters": {},
+      "metadata": {"designer": {"x": 1200, "y": 0}}
+    },
+    {
+      "id": 6,
+      "module": "google-email:sendAnEmail",
+      "version": 4,
+      "mapper": {
+        "to": [{"address": "connect@letsinterplay.com"}],
+        "subject": "{{if(5.gap > 0; \"⚠ Series Rosters gap detected\"; \"✓ Series Rosters in sync\")}} — week of {{1.since_iso}}",
+        "contentType": "text/html",
+        "content": "<pre style=\"font-family: sans-serif; font-size: 14px;\">Weekly Series Rosters gap check\nPeriod: {{1.since_iso}} → {{1.today_iso}}\n\nTT Dojo orders (Boulder + Online): {{5.tt_total}}\nSeries Rosters rows added this week:  {{5.rosters_count}}\nGap: {{5.gap}}\n\n{{if(5.gap > 0; \"⚠ Possible missing rows. The TT → Airtable scenario may not be running, or there are non-Dojo orders not covered by this check.\"; \"✓ Counts match. No action needed.\")}}\n\nAirtable Series Rosters: https://airtable.com/appONwRwGnRvhPgHc/tblcdvTCAJHcvqFY3\n\n(This is a weekly digest from Make.com scenario \"Series Rosters Gap Check\".)</pre>"
+      },
+      "parameters": {"__IMTCONN__": 8744275},
+      "metadata": {"designer": {"x": 1500, "y": 0}}
+    }
+  ],
+  "metadata": {
+    "instant": false,
+    "version": 1,
+    "designer": {"orphans": []},
+    "scenario": {
+      "dlq": false,
+      "dataloss": false,
+      "maxErrors": 3,
+      "autoCommit": true,
+      "roundtrips": 1,
+      "sequential": false,
+      "confidential": false,
+      "freshVariables": false,
+      "autoCommitTriggerLast": true
+    },
+    "scheduling": {
+      "type": "indefinitely",
+      "interval": 86400,
+      "start": "2026-06-29T16:00:00.000Z"
+    }
+  }
+}
