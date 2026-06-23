@@ -1,5 +1,5 @@
 {
-  "name": "Auto-link Time Entries to Pay Periods (nightly)",
+  "name": "Auto-link Time Entries to Pay Periods (bi-monthly)",
   "flow": [
     {
       "id": 1,
@@ -22,7 +22,7 @@
       "mapper": {
         "base": "appONwRwGnRvhPgHc",
         "table": "tblielJsv6tfaxJ3c",
-        "formula": "AND(FIND('{{1.fldzRyHOyY3ocVKuB[].id}}', ARRAYJOIN({fldrqvgbLMSMTMbVC}, ',')) > 0, DATETIME_DIFF('{{formatDate(1.fldhdPbYSruwgNx1v; \"YYYY-MM-DD\")}}', {fldRehAOKGKueyKAC}, 'days') >= 0, DATETIME_DIFF({fldf9FvqvmyywkRz3}, '{{formatDate(1.fldhdPbYSruwgNx1v; \"YYYY-MM-DD\")}}', 'days') >= 0)",
+        "formula": "AND(FIND('{{1.fldzRyHOyY3ocVKuB[1].id}}', ARRAYJOIN({fldrqvgbLMSMTMbVC}, ',')) > 0, DATETIME_DIFF('{{formatDate(1.fldhdPbYSruwgNx1v; \"YYYY-MM-DD\")}}', {fldRehAOKGKueyKAC}, 'days') >= 0, DATETIME_DIFF({fldf9FvqvmyywkRz3}, '{{formatDate(1.fldhdPbYSruwgNx1v; \"YYYY-MM-DD\")}}', 'days') >= 0)",
         "maxRecords": 1,
         "useColumnId": true
       },
@@ -71,7 +71,10 @@
     "scheduling": {
       "type": "indefinitely",
       "interval": 86400,
-      "start": "2026-06-23T09:00:00.000Z"
+      "restrict": [
+        {"type": "month_day", "days": [15, 30]},
+        {"type": "time", "time": "20:00"}
+      ]
     }
   }
 }
