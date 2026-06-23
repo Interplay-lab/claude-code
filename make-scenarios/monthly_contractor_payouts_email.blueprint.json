@@ -34,7 +34,7 @@
       "mapper": {
         "base": "appONwRwGnRvhPgHc",
         "table": "tblielJsv6tfaxJ3c",
-        "formula": "AND({Period End} = '{{1.period_end_last_day}}', {Status} = 'Draft', IFEMPTY({Total Hours}, 0) > 0, FIND('recweNAZ0cQ6PQRKz', ARRAYJOIN({Person}, ',')) = 0)",
+        "formula": "AND({Period End} = '{{1.period_end_last_day}}', {Status} = 'Draft', {Total Hours} > 0, FIND('recweNAZ0cQ6PQRKz', ARRAYJOIN({Person}, ',')) = 0)",
         "maxRecords": 25,
         "useColumnId": false
       },
