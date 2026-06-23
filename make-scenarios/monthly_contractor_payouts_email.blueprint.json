@@ -1,0 +1,110 @@
+{
+  "name": "Monthly Contractor Payouts Email → Joanna",
+  "flow": [
+    {
+      "id": 1,
+      "module": "util:SetVariables",
+      "version": 1,
+      "filter": {
+        "name": "Only run on 1st of month",
+        "conditions": [
+          [{"a": "{{formatDate(now; \"D\"; \"America/Los_Angeles\")}}", "b": "1", "o": "text:equal"}]
+        ]
+      },
+      "mapper": {
+        "scope": "roundtrip",
+        "variables": [
+          {
+            "name": "prior_month_label",
+            "value": "{{formatDate(addMonths(now; -1); \"MMMM YYYY\"; \"America/Los_Angeles\")}}"
+          },
+          {
+            "name": "period_end_last_day",
+            "value": "{{formatDate(addDays(setDate(now; 1); -1); \"YYYY-MM-DD\"; \"America/Los_Angeles\")}}"
+          }
+        ]
+      },
+      "parameters": {},
+      "metadata": {"designer": {"x": 0, "y": 0}}
+    },
+    {
+      "id": 2,
+      "module": "airtable:ActionSearchRecords",
+      "version": 3,
+      "mapper": {
+        "base": "appONwRwGnRvhPgHc",
+        "table": "tblielJsv6tfaxJ3c",
+        "formula": "AND({Period End} = '{{1.period_end_last_day}}', {Status} = 'Draft', IFEMPTY({Total Hours}, 0) > 0, FIND('recweNAZ0cQ6PQRKz', ARRAYJOIN({Person}, ',')) = 0)",
+        "maxRecords": 25,
+        "useColumnId": false
+      },
+      "parameters": {"__IMTCONN__": 8741307},
+      "metadata": {"designer": {"x": 300, "y": 0}}
+    },
+    {
+      "id": 3,
+      "module": "util:TextAggregator",
+      "version": 1,
+      "mapper": {
+        "value": "  {{2.`Period Label`}}\n    {{2.`Total Hours`}} hrs × ${{2.`Hourly Rate`}}/hr = ${{2.`Total $`}}\n    https://airtable.com/appONwRwGnRvhPgHc/tblielJsv6tfaxJ3c/{{2.id}}",
+        "rowSeparator": "\n\n"
+      },
+      "parameters": {"feeder": 2, "rowSeparator": "other", "rowSeparatorOther": "\n\n"},
+      "metadata": {"designer": {"x": 600, "y": 0}}
+    },
+    {
+      "id": 4,
+      "module": "util:TextAggregator",
+      "version": 1,
+      "mapper": {
+        "value": "{{2.`Total $`}}",
+        "rowSeparator": "\n"
+      },
+      "parameters": {"feeder": 2, "rowSeparator": "other", "rowSeparatorOther": "+"},
+      "metadata": {"designer": {"x": 900, "y": 0}}
+    },
+    {
+      "id": 5,
+      "module": "google-email:sendAnEmail",
+      "version": 4,
+      "filter": {
+        "name": "At least one payout to report",
+        "conditions": [
+          [{"a": "{{length(3.text)}}", "b": "0", "o": "number:notequal"}]
+        ]
+      },
+      "mapper": {
+        "to": ["finance.interplay@gmail.com"],
+        "subject": "Monthly contractor payouts for {{1.prior_month_label}}",
+        "bodyType": "rawHtml",
+        "content": "<pre style=\"font-family: sans-serif; font-size: 14px;\">Hi Joanna,\n\nHere are the contractor payouts for {{1.prior_month_label}}, ready to process through Gusto:\n\n{{3.text}}\n\nOnce you've processed payments, please mark each record as Paid in Airtable (or reply and I will).\n\nThanks!\nBriana\n</pre>"
+      },
+      "parameters": {"__IMTCONN__": 9548302},
+      "metadata": {"designer": {"x": 1200, "y": 0}}
+    }
+  ],
+  "metadata": {
+    "instant": false,
+    "version": 1,
+    "designer": {"orphans": []},
+    "scenario": {
+      "dlq": false,
+      "dataloss": false,
+      "maxErrors": 3,
+      "autoCommit": true,
+      "roundtrips": 1,
+      "sequential": false,
+      "confidential": false,
+      "freshVariables": false,
+      "autoCommitTriggerLast": true
+    },
+    "scheduling": {
+      "type": "indefinitely",
+      "interval": 86400,
+      "restrict": [
+        {"type": "month_day", "days": [1]},
+        {"type": "time", "time": "09:00"}
+      ]
+    }
+  }
+}
