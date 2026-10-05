@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 1180" width="960" height="1180" font-family="Helvetica, Arial, sans-serif">
+  <rect width="960" height="1180" fill="#ffffff"/>
+  <text x="40" y="48" font-size="26" font-weight="700" fill="#1f2328">How to publish the payroll fixes in Airtable</text>
+  <text x="40" y="76" font-size="14" fill="#57606a">Simplified illustration. Your screen may look a little different, but the pieces are in these places.</text>
+
+  <!-- STEP 1 -->
+  <circle cx="58" cy="128" r="18" fill="#2d7ff9"/><text x="58" y="134" font-size="18" font-weight="700" fill="#fff" text-anchor="middle">1</text>
+  <text x="88" y="134" font-size="19" font-weight="700" fill="#1f2328">Open the base from the Airtable home page</text>
+  <rect x="40" y="160" width="880" height="270" rx="10" fill="#f6f8fa" stroke="#d0d7de"/>
+  <rect x="40" y="160" width="880" height="44" rx="10" fill="#ffffff" stroke="#d0d7de"/>
+  <text x="62" y="188" font-size="15" font-weight="700" fill="#1f2328">airtable.com</text>
+  <text x="200" y="188" font-size="13" fill="#57606a">Home</text>
+  <rect x="62" y="222" width="160" height="190" rx="6" fill="#ffffff" stroke="#d0d7de"/>
+  <text x="78" y="250" font-size="13" fill="#57606a">Home</text>
+  <text x="78" y="278" font-size="13" font-weight="700" fill="#1f2328">★ Starred</text>
+  <text x="90" y="302" font-size="12" fill="#57606a">Relational Interplay…</text>
+  <text x="78" y="330" font-size="13" fill="#57606a">Workspaces</text>
+  <!-- base card -->
+  <rect x="260" y="232" width="300" height="96" rx="8" fill="#ffffff" stroke="#e5484d" stroke-width="3"/>
+  <rect x="276" y="250" width="56" height="56" rx="10" fill="#2d7ff9"/>
+  <text x="304" y="286" font-size="20" font-weight="700" fill="#fff" text-anchor="middle">RI</text>
+  <text x="346" y="272" font-size="14" font-weight="700" fill="#1f2328">Relational Interplay</text>
+  <text x="346" y="292" font-size="14" font-weight="700" fill="#1f2328">Events &amp; Operations</text>
+  <text x="346" y="312" font-size="12" fill="#57606a">★ Starred</text>
+  <rect x="590" y="232" width="300" height="96" rx="8" fill="#ffffff" stroke="#d0d7de" stroke-dasharray="4 4"/>
+  <text x="740" y="286" font-size="12" fill="#8c959f" text-anchor="middle">(other bases, if any)</text>
+  <path d="M410 372 L410 336" stroke="#e5484d" stroke-width="3" marker-end="url(#arr)"/>
+  <text x="410" y="396" font-size="14" font-weight="700" fill="#e5484d" text-anchor="middle">Click this base</text>
+
+  <!-- STEP 2 -->
+  <circle cx="58" cy="478" r="18" fill="#2d7ff9"/><text x="58" y="484" font-size="18" font-weight="700" fill="#fff" text-anchor="middle">2</text>
+  <text x="88" y="484" font-size="19" font-weight="700" fill="#1f2328">Click "Automations" in the bar along the top of the base</text>
+  <rect x="40" y="510" width="880" height="190" rx="10" fill="#f6f8fa" stroke="#d0d7de"/>
+  <rect x="40" y="510" width="880" height="52" rx="10" fill="#2d7ff9"/>
+  <text x="62" y="542" font-size="15" font-weight="700" fill="#ffffff">Relational Interplay Events &amp; Operations ▾</text>
+  <text x="440" y="542" font-size="14" fill="#ffffff">Data</text>
+  <rect x="500" y="522" width="118" height="30" rx="6" fill="#ffffff" stroke="#e5484d" stroke-width="3"/>
+  <text x="559" y="542" font-size="14" font-weight="700" fill="#2d7ff9" text-anchor="middle">Automations</text>
+  <text x="640" y="542" font-size="14" fill="#ffffff">Interfaces</text>
+  <text x="730" y="542" font-size="14" fill="#ffffff">Forms</text>
+  <text x="62" y="590" font-size="13" fill="#57606a">Events  |  Attendance  |  Facilitator Payouts  |  Series Rosters  |  Staff  |  …  |  Pay Periods  |  Time Entries  |  …</text>
+  <text x="62" y="612" font-size="12" fill="#8c959f">(this second row is the table tabs, which is where you'll find Pay Periods and Time Entries)</text>
+  <path d="M559 650 L559 562" stroke="#e5484d" stroke-width="3" marker-end="url(#arr)"/>
+  <text x="559" y="676" font-size="14" font-weight="700" fill="#e5484d" text-anchor="middle">Click "Automations"</text>
+
+  <!-- STEP 3 -->
+  <circle cx="58" cy="748" r="18" fill="#2d7ff9"/><text x="58" y="754" font-size="18" font-weight="700" fill="#fff" text-anchor="middle">3</text>
+  <text x="88" y="754" font-size="19" font-weight="700" fill="#1f2328">Pick the automation on the left, then publish the change</text>
+  <rect x="40" y="780" width="880" height="330" rx="10" fill="#f6f8fa" stroke="#d0d7de"/>
+  <!-- left list -->
+  <rect x="56" y="796" width="270" height="298" rx="6" fill="#ffffff" stroke="#d0d7de"/>
+  <text x="72" y="822" font-size="13" font-weight="700" fill="#1f2328">Automations</text>
+  <text x="72" y="852" font-size="12" fill="#57606a">● Cache Event Date on Facilitator…</text>
+  <rect x="64" y="864" width="254" height="30" rx="5" fill="#ddebff" stroke="#e5484d" stroke-width="3"/>
+  <text x="72" y="884" font-size="12" font-weight="700" fill="#1f2328">● Monthly Payout Setup</text>
+  <rect x="64" y="900" width="254" height="30" rx="5" fill="#ffffff" stroke="#e5484d" stroke-width="2" stroke-dasharray="5 3"/>
+  <text x="72" y="920" font-size="12" font-weight="700" fill="#1f2328">● Monthly Bookkeeper Email</text>
+  <text x="72" y="952" font-size="12" fill="#57606a">● Auto-link Expenses to Subscr…</text>
+  <text x="72" y="978" font-size="12" fill="#57606a">● Auto-link Event Supply Exp…</text>
+  <text x="72" y="1004" font-size="12" fill="#57606a">○ Copy IB Rate on Pay Period…</text>
+  <text x="72" y="1030" font-size="12" fill="#57606a">○ Auto-link Time Entries… (native)</text>
+  <text x="72" y="1066" font-size="11" fill="#8c959f">● = on    ○ = off</text>
+  <!-- right panel -->
+  <rect x="342" y="796" width="562" height="298" rx="6" fill="#ffffff" stroke="#d0d7de"/>
+  <text x="362" y="824" font-size="15" font-weight="700" fill="#1f2328">Monthly Payout Setup</text>
+  <rect x="362" y="840" width="522" height="40" rx="6" fill="#fff8c5" stroke="#d4a72c"/>
+  <text x="376" y="865" font-size="13" fill="#7d4e00">This automation has unpublished changes</text>
+  <rect x="740" y="806" width="146" height="30" rx="6" fill="#2d7ff9" stroke="#e5484d" stroke-width="3"/>
+  <text x="813" y="826" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">Update / Publish</text>
+  <rect x="362" y="898" width="522" height="46" rx="6" fill="#f6f8fa" stroke="#d0d7de"/>
+  <text x="376" y="926" font-size="13" fill="#1f2328">Trigger: At a scheduled time (1st of each month)</text>
+  <rect x="362" y="956" width="522" height="46" rx="6" fill="#f6f8fa" stroke="#d0d7de"/>
+  <text x="376" y="984" font-size="13" fill="#1f2328">Action 1: Run a script</text>
+  <rect x="362" y="1014" width="522" height="46" rx="6" fill="#f6f8fa" stroke="#d0d7de"/>
+  <text x="376" y="1042" font-size="13" fill="#1f2328">Action 2: Send email (to Violet)</text>
+  <text x="560" y="1082" font-size="12" font-weight="700" fill="#e5484d">↑ the button is usually near the top-right of this panel</text>
+
+  <!-- footer -->
+  <rect x="40" y="1124" width="880" height="44" rx="8" fill="#ddebff"/>
+  <text x="58" y="1151" font-size="14" fill="#1f2328">Repeat step 3 for "Monthly Bookkeeper Email" (the dashed box). Then both fixes are live.</text>
+
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#e5484d"/>
+    </marker>
+  </defs>
+</svg>
